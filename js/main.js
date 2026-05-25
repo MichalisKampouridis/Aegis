@@ -424,7 +424,7 @@ function renderIPHistory() {
 }
 
 function loadFromHistory(query) {
-  document.getElementById('ip-input').value = query;
+  document.getElementById("ip-input").value = query;
   investigateIP();
 }
 
@@ -589,4 +589,24 @@ document.getElementById('clear-ip-btn').addEventListener('click', function() {
   document.getElementById('ip-input').value = '';
   document.getElementById('ip-result').innerHTML = '<p class="placeholder-text">Enter an IP address or domain to investigate.</p>';
 });
+
+
+// CLEAR IP HISTORY
+function clearIPHistory() {
+  ipSearchHistory = [];
+  renderIPHistory();
+}
+
+// ANIMATE THREAT SCORE BAR
+function animateThreatBar() {
+  const bar = document.querySelector('.threat-bar');
+  if (!bar) return;
+  const targetWidth = bar.getAttribute('data-width');
+  bar.style.width = '0%';
+  setTimeout(function() {
+    bar.style.transition = 'width 1s ease-out';
+    bar.style.width = targetWidth + '%';
+  }, 100);
+}
+
 
