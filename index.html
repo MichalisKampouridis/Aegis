@@ -1,0 +1,124 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aegis — Personal Security Intelligence Dashboard</title>
+<link rel="stylesheet" href="css/style.css">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app-container">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo-block">
+      <svg class="shield-logo" viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="30,2 58,15 58,40 30,68 2,40 2,15" fill="#0a0f1e" stroke="#f59e0b" stroke-width="3"/>
+        <polygon points="30,10 50,20 50,38 30,58 10,38 10,20" fill="#0d1526" stroke="#f59e0b" stroke-width="1.5"/>
+        <line x1="30" y1="10" x2="30" y2="58" stroke="#f59e0b" stroke-width="2"/>
+        <line x1="10" y1="29" x2="50" y2="29" stroke="#f59e0b" stroke-width="2"/>
+        <polygon points="30,18 38,29 30,40 22,29" fill="#f59e0b" opacity="0.9"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-title">AEGIS</span>
+        <span class="logo-sub">SECURITY INTELLIGENCE</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="breach">
+        <span class="nav-icon">⚠</span>
+        <span class="nav-label">Breach Checker</span>
+      </a>
+      <a href="#" class="nav-item" data-page="password">
+        <span class="nav-icon">🔑</span>
+        <span class="nav-label">Password Health</span>
+      </a>
+      <a href="#" class="nav-item" data-page="ip">
+        <span class="nav-icon">🌐</span>
+        <span class="nav-label">IP Investigator</span>
+      </a>
+      <a href="#" class="nav-item" data-page="cve">
+        <span class="nav-icon">🛡</span>
+        <span class="nav-label">CVE Threat Feed</span>
+      </a>
+      <a href="#" class="nav-item" data-page="briefing">
+        <span class="nav-icon">🤖</span>
+        <span class="nav-label">AI Briefing</span>
+      </a>
+      <a href="#" class="nav-item" data-page="news">
+        <span class="nav-icon">📡</span>
+        <span class="nav-label">Security News</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot"></span>
+      <span class="status-text">SYSTEM ONLINE</span>
+    </div>
+  </aside>
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title" id="page-title">Breach Checker</h1>
+      <div class="header-meta">
+        <span id="live-time"></span>
+      </div>
+    </div>
+    <div class="content-area" id="content-area">
+      <!-- Pages load here -->
+      <div class="page active" id="page-breach">
+        <div class="card">
+          <div class="card-header">EMAIL BREACH SCAN</div>
+          <div class="input-row">
+            <input type="email" id="breach-email" class="aegis-input" placeholder="Enter email address...">
+            <button class="aegis-btn" id="breach-btn">SCAN</button>
+          </div>
+          <div class="result-area" id="breach-result"></div>
+        </div>
+      </div>
+      <div class="page" id="page-password">
+        <div class="card">
+          <div class="card-header">PASSWORD HEALTH CHECK</div>
+          <div class="input-row">
+            <input type="password" id="password-input" class="aegis-input" placeholder="Enter password to check...">
+            <button class="aegis-btn" id="password-btn">CHECK</button>
+          </div>
+          <div class="result-area" id="password-result"></div>
+        </div>
+      </div>
+      <div class="page" id="page-ip">
+        <div class="card">
+          <div class="card-header">IP / DOMAIN INVESTIGATOR</div>
+          <div class="input-row">
+            <input type="text" id="ip-input" class="aegis-input" placeholder="Enter IP address or domain...">
+            <button class="aegis-btn" id="ip-btn">INVESTIGATE</button>
+          </div>
+          <div class="result-area" id="ip-result"></div>
+        </div>
+      </div>
+      <div class="page" id="page-cve">
+        <div class="card">
+          <div class="card-header">CVE THREAT FEED</div>
+          <div class="result-area" id="cve-result"><p class="placeholder-text">Loading latest CVEs...</p></div>
+        </div>
+      </div>
+      <div class="page" id="page-briefing">
+        <div class="card">
+          <div class="card-header">AI DAILY BRIEFING</div>
+          <div class="input-row">
+            <button class="aegis-btn" id="briefing-btn">GENERATE BRIEFING</button>
+          </div>
+          <div class="result-area" id="briefing-result"></div>
+        </div>
+      </div>
+      <div class="page" id="page-news">
+        <div class="card">
+          <div class="card-header">SECURITY NEWS HEADLINES</div>
+          <div class="result-area" id="news-result"><p class="placeholder-text">Loading latest headlines...</p></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="js/main.js"></script>
+</body>
+</html>
