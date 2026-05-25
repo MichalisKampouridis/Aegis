@@ -1,4 +1,9 @@
-﻿// PAGE NAVIGATION
+﻿// ============================================================
+// AEGIS — PERSONAL SECURITY INTELLIGENCE DASHBOARD
+// main.js — Complete Feature Set
+// ============================================================
+
+// PAGE NAVIGATION
 const navItems = document.querySelectorAll('.nav-item');
 const pages = document.querySelectorAll('.page');
 const pageTitle = document.getElementById('page-title');
@@ -16,10 +21,8 @@ navItems.forEach(item => {
   item.addEventListener('click', (e) => {
     e.preventDefault();
     const target = item.dataset.page;
-
     navItems.forEach(n => n.classList.remove('active'));
     pages.forEach(p => p.classList.remove('active'));
-
     item.classList.add('active');
     document.getElementById('page-' + target).classList.add('active');
     pageTitle.textContent = pageTitles[target];
@@ -29,14 +32,14 @@ navItems.forEach(item => {
 // LIVE CLOCK
 function updateClock() {
   const now = new Date();
-  const timeStr = now.toUTCString().replace('GMT', 'UTC');
-  document.getElementById('live-time').textContent = timeStr;
+  document.getElementById('live-time').textContent = now.toUTCString().replace('GMT', 'UTC');
 }
 updateClock();
 setInterval(updateClock, 1000);
 
-
+// ============================================================
 // TOGGLE PASSWORD VISIBILITY
+// ============================================================
 function togglePassword() {
   const input = document.getElementById('password-input');
   const btn = document.getElementById('toggle-pw');
@@ -49,241 +52,9 @@ function togglePassword() {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-// IP / DOMAIN INVESTIGATOR — FULL EDITION
-const KNOWN_SAFE = {
-  '8.8.8.8': 'Google Public DNS',
-  '8.8.4.4': 'Google Public DNS',
-  '1.1.1.1': 'Cloudflare DNS',
-  '1.0.0.1': 'Cloudflare DNS',
-  '9.9.9.9': 'Quad9 DNS',
-  '208.67.222.222': 'OpenDNS',
-  '208.67.220.220': 'OpenDNS',
-  '4.2.2.1': 'Level3 DNS',
-  '4.2.2.2': 'Level3 DNS',
-  '149.112.112.112': 'Quad9 DNS'
-};
-
-const KNOWN_MALICIOUS = [
-  '185.220.101.', '185.220.100.', '162.247.74.', '199.87.154.',
-  '171.25.193.', '176.10.104.', '77.247.181.', '46.165.230.'
-];
-
-let ipSearchHistory = [];
-
-function addToHistory(query, threat, color) {
-  ipSearchHistory = ipSearchHistory.filter(h => h.query !== query);
-  ipSearchHistory.unshift({ query, threat, color });
-  if (ipSearchHistory.length > 10) ipSearchHistory.pop();
-  renderHistory();
-}
-
-function renderHistory() {
-  const histDiv = document.getElementById('ip-history');
-  if (!histDiv) return;
-  if (ipSearchHistory.length === 0) {
-    histDiv.innerHTML = '<p class="placeholder-text" style="font-size:10px;">No recent searches</p>';
-    return;
-  }
-  histDiv.innerHTML = ipSearchHistory.map(h => `
-    <div onclick="loadFromHistory('${h.query}')" style="cursor:pointer; padding:6px 10px; margin-bottom:4px; background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ${h.color}; border-radius:2px; font-family:var(--font-mono); font-size:11px; color:${h.color}; transition:all 0.2s;" onmouseover="this.style.background='var(--amber-glow)'" onmouseout="this.style.background='var(--bg-secondary)'">
-      ${h.query} <span style="color:var(--text-dim); font-size:10px;">— ${h.threat}</span>
-    </div>
-  `).join('');
-}
-
-function loadFromHistory(query) {
-  document.getElementById('ip-input').value = query;
-  investigateIP();
-}
-
-function copyIPReport() {
-  const reportText = document.getElementById('ip-report-text').innerText;
-  navigator.clipboard.writeText(reportText).then(() => {
-    const btn = document.getElementById('copy-ip-btn');
-    btn.textContent = '✓ COPIED';
-    btn.style.color = '#10b981';
-    btn.style.borderColor = '#10b981';
-    setTimeout(() => {
-      btn.textContent = '⎘ COPY REPORT';
-      btn.style.color = '';
-      btn.style.borderColor = '';
-    }, 2000);
-  });
-}
-
-async function investigateIP() {
-  const input = document.getElementById('ip-input').value.trim();
-  const resultDiv = document.getElementById('ip-result');
-
-  if (!input) {
-    resultDiv.innerHTML = '<p class="placeholder-text">Please enter an IP address or domain.</p>';
-    return;
-  }
-
-  resultDiv.innerHTML = '<p class="loading">INVESTIGATING TARGET...</p>';
-
-  try {
-    // MAIN IP DATA
-    const ipResponse = await fetch(`http://ip-api.com/json/${encodeURIComponent(input)}?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query`);
-    const d = await ipResponse.json();
-
-    if (d.status === 'fail') {
-      resultDiv.innerHTML = `<p class="placeholder-text">Error: ${d.message}</p>`;
-      return;
-    }
-
-    // REVERSE DNS
-    let reverseDNS = 'Unavailable';
-    try {
-      const dnsResponse = await fetch(`https://dns.google/resolve?name=${d.query}&type=PTR`);
-      const dnsData = await dnsResponse.json();
-      if (dnsData.Answer && dnsData.Answer.length > 0) {
-        reverseDNS = dnsData.Answer[0].data.replace(/\.$/, '');
-      } else {
-        reverseDNS = 'No PTR record found';
-      }
-    } catch (e) { reverseDNS = 'Lookup failed'; }
-
-    // WHOIS
-    let whoisHTML = '';
-    try {
-      const whoisResponse = await fetch(`https://whoisjson.com/api/v1/whois?domain=${encodeURIComponent(input)}`);
-      const whoisData = await whoisResponse.json();
-      if (whoisData && !whoisData.error) {
-        const created = whoisData.created_date ? new Date(whoisData.created_date).toLocaleDateString() : 'Unknown';
-        const expires = whoisData.expiration_date ? new Date(whoisData.expiration_date).toLocaleDateString() : 'Unknown';
-        const registrar = whoisData.registrar || 'Unknown';
-        const registrant = whoisData.registrant_name || whoisData.registrant_org || 'Redacted';
-        whoisHTML = `
-          <div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
-            <div style="font-family:var(--font-mono); font-size:10px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">WHOIS DATA</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">
-              <div>REGISTRAR: <span style="color:var(--text-primary)">${registrar}</span></div>
-              <div>REGISTRANT: <span style="color:var(--text-primary)">${registrant}</span></div>
-              <div>CREATED: <span style="color:var(--text-primary)">${created}</span></div>
-              <div>EXPIRES: <span style="color:var(--text-primary)">${expires}</span></div>
-            </div>
-          </div>`;
-      }
-    } catch (e) {}
-
-    // THREAT SCORING
-    let threatScore = 0;
-    let threatReasons = [];
-    let knownSafeLabel = null;
-
-    if (KNOWN_SAFE[d.query]) knownSafeLabel = KNOWN_SAFE[d.query];
-    const isMalicious = KNOWN_MALICIOUS.some(range => d.query.startsWith(range));
-    if (isMalicious) { threatScore += 80; threatReasons.push('Known malicious IP range'); }
-    if (d.proxy && !knownSafeLabel) { threatScore += 40; threatReasons.push('Proxy / VPN detected'); }
-    if (d.hosting && !knownSafeLabel) { threatScore += 20; threatReasons.push('Hosted in datacenter'); }
-    const highRiskCountries = ['CN', 'RU', 'KP', 'IR', 'NG', 'RO'];
-    if (highRiskCountries.includes(d.countryCode) && !knownSafeLabel) {
-      threatScore += 15;
-      threatReasons.push('High-risk origin country');
-    }
-
-    let threat, threatColor, threatBg;
-    if (knownSafeLabel) {
-      threat = '✅ TRUSTED'; threatColor = '#10b981'; threatBg = 'rgba(16, 185, 129, 0.08)';
-    } else if (threatScore >= 60) {
-      threat = '🔴 HIGH THREAT'; threatColor = '#ef4444'; threatBg = 'rgba(239, 68, 68, 0.08)';
-    } else if (threatScore >= 25) {
-      threat = '⚡ SUSPICIOUS'; threatColor = '#f59e0b'; threatBg = 'rgba(245, 158, 11, 0.08)';
-    } else {
-      threat = '✅ CLEAN'; threatColor = '#10b981'; threatBg = 'rgba(16, 185, 129, 0.08)';
-    }
-
-    const barWidth = knownSafeLabel ? 0 : Math.min(threatScore, 100);
-    addToHistory(d.query, threat.replace(/[^\w\s]/g, '').trim(), threatColor);
-
-    const reportText = `AEGIS IP INVESTIGATION REPORT
-==============================
-TARGET: ${d.query}
-VERDICT: ${threat}
-THREAT SCORE: ${knownSafeLabel ? 'N/A (Trusted)' : threatScore + '/100'}
-REVERSE DNS: ${reverseDNS}
-COUNTRY: ${d.country} (${d.countryCode})
-REGION: ${d.regionName}
-CITY: ${d.city}
-ISP: ${d.isp}
-ORGANIZATION: ${d.org}
-AS NUMBER: ${d.as}
-PROXY/VPN: ${d.proxy && !knownSafeLabel ? 'YES' : 'No'}
-DATACENTER: ${d.hosting && !knownSafeLabel ? 'YES' : 'No'}
-THREAT INDICATORS: ${threatReasons.length > 0 ? threatReasons.join(', ') : 'None'}
-GENERATED: ${new Date().toUTCString()}`;
-
-    resultDiv.innerHTML = `
-      <div id="ip-report-text" class="breach-card" style="border-left-color:${threatColor}; background:${threatBg}">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-          <div class="breach-name" style="color:${threatColor}; font-size:15px;">${threat} — ${d.query}</div>
-          <button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:9px; padding:6px 12px;">⎘ COPY REPORT</button>
-        </div>
-        ${knownSafeLabel ? `<div style="font-family:var(--font-mono); font-size:11px; color:#10b981; margin-bottom:12px;">✓ Verified: ${knownSafeLabel}</div>` : ''}
-
-        ${!knownSafeLabel ? `
-        <div style="margin:12px 0;">
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:6px;">THREAT SCORE</div>
-          <div style="background:#0a0f1e; border-radius:2px; height:6px; width:100%;">
-            <div style="background:${threatColor}; height:6px; width:${barWidth}%; border-radius:2px; box-shadow:0 0 8px ${threatColor};"></div>
-          </div>
-          <div style="font-family:var(--font-mono); font-size:11px; color:${threatColor}; margin-top:4px;">${threatScore}/100</div>
-        </div>` : ''}
-
-        ${threatReasons.length > 0 ? `
-        <div style="margin-bottom:12px;">
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:6px;">THREAT INDICATORS</div>
-          ${threatReasons.map(r => `<div style="font-family:var(--font-mono); font-size:11px; color:${threatColor}; margin-bottom:3px;">▸ ${r}</div>`).join('')}
-        </div>` : ''}
-
-        <div class="breach-detail" style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">NETWORK INTELLIGENCE</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <div>REVERSE DNS: <span style="color:var(--text-primary)">${reverseDNS}</span></div>
-            <div>COUNTRY: <span>${d.country} (${d.countryCode})</span></div>
-            <div>REGION: <span>${d.regionName}</span></div>
-            <div>CITY: <span>${d.city}</span></div>
-            <div>ISP: <span>${d.isp}</span></div>
-            <div>ORGANIZATION: <span>${d.org}</span></div>
-            <div>AS NUMBER: <span>${d.as}</span></div>
-            <div>PROXY / VPN: <span style="color:${d.proxy && !knownSafeLabel ? '#ef4444' : '#10b981'}">${d.proxy && !knownSafeLabel ? 'YES ⚠' : 'No'}</span></div>
-            <div>DATACENTER: <span style="color:${d.hosting && !knownSafeLabel ? '#f59e0b' : '#10b981'}">${d.hosting && !knownSafeLabel ? 'YES ⚡' : 'No'}</span></div>
-          </div>
-        </div>
-        ${whoisHTML}
-      </div>
-      <div class="result-label" style="margin-top:8px;">Data sourced from ip-api.com · Threat scoring by Aegis Intelligence Engine · ${new Date().toUTCString()}</div>
-    `;
-
-  } catch (error) {
-    resultDiv.innerHTML = `<p class="placeholder-text">Error: ${error.message}</p>`;
-  }
-}
-
-document.getElementById('ip-btn').addEventListener('click', investigateIP);
-document.getElementById('ip-input').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') investigateIP();
-});
-
-
-
-
-
+// ============================================================
 // PASSWORD HEALTH CHECK — ULTIMATE EDITION
+// ============================================================
 function calculateEntropy(password) {
   let charset = 0;
   if (/[a-z]/.test(password)) charset += 26;
@@ -294,17 +65,15 @@ function calculateEntropy(password) {
 }
 
 function estimateCrackTime(entropy) {
-  const guessesPerSecond = 1e12;
-  const combinations = Math.pow(2, entropy);
-  const seconds = combinations / guessesPerSecond / 2;
+  const seconds = Math.pow(2, entropy) / 1e12 / 2;
   if (seconds < 1) return 'Instantly';
-  if (seconds < 60) return `${Math.round(seconds)} seconds`;
-  if (seconds < 3600) return `${Math.round(seconds/60)} minutes`;
-  if (seconds < 86400) return `${Math.round(seconds/3600)} hours`;
-  if (seconds < 31536000) return `${Math.round(seconds/86400)} days`;
-  if (seconds < 3153600000) return `${Math.round(seconds/31536000)} years`;
-  if (seconds < 3.154e13) return `${Math.round(seconds/3153600000)} thousand years`;
-  if (seconds < 3.154e16) return `${Math.round(seconds/3.154e13)} million years`;
+  if (seconds < 60) return Math.round(seconds) + ' seconds';
+  if (seconds < 3600) return Math.round(seconds / 60) + ' minutes';
+  if (seconds < 86400) return Math.round(seconds / 3600) + ' hours';
+  if (seconds < 31536000) return Math.round(seconds / 86400) + ' days';
+  if (seconds < 3153600000) return Math.round(seconds / 31536000) + ' years';
+  if (seconds < 3.154e13) return Math.round(seconds / 3153600000) + ' thousand years';
+  if (seconds < 3.154e16) return Math.round(seconds / 3.154e13) + ' million years';
   return 'Billions of years';
 }
 
@@ -383,10 +152,9 @@ let lastBreachChecked = '';
 
 async function runBreachCheck(password) {
   const breachDiv = document.getElementById('breach-check-result');
-  if (!breachDiv) return;
-  if (password === lastBreachChecked) return;
+  if (!breachDiv || password === lastBreachChecked) return;
   lastBreachChecked = password;
-  breachDiv.innerHTML = '<p class="loading" style="font-size:11px;">Checking breach database...</p>';
+  breachDiv.innerHTML = '<p class="loading" style="font-size:13px;">Checking breach database...</p>';
   try {
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
@@ -395,23 +163,23 @@ async function runBreachCheck(password) {
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
     const prefix = hashHex.slice(0, 5);
     const suffix = hashHex.slice(5);
-    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+    const response = await fetch('https://api.pwnedpasswords.com/range/' + prefix);
     const text = await response.text();
     let count = 0;
     for (const line of text.split('\n')) {
       const [hashSuffix, hashCount] = line.split(':');
       if (hashSuffix.trim() === suffix) { count = parseInt(hashCount.trim()); break; }
     }
-    if (!document.getElementById('breach-check-result')) return;
+    const breachDiv2 = document.getElementById('breach-check-result');
+    if (!breachDiv2) return;
     if (count === 0) {
-      breachDiv.innerHTML = `<div class="safe-banner" style="margin-top:0;">✅ NOT FOUND IN ANY KNOWN DATA BREACH<br><span style="font-size:10px; opacity:0.7;">Checked via HaveIBeenPwned k-anonymity API. Your password was never transmitted.</span></div>`;
+      breachDiv2.innerHTML = '<div class="safe-banner">✅ NOT FOUND IN ANY KNOWN DATA BREACH<br><span style="font-size:12px; opacity:0.7;">Checked via HaveIBeenPwned k-anonymity API. Your password was never transmitted.</span></div>';
     } else {
-      breachDiv.innerHTML = `<div class="danger-banner" style="margin-top:0;">⚠ FOUND IN ${count.toLocaleString()} KNOWN DATA BREACHES<br><span style="font-size:10px; opacity:0.7;">Change this password immediately on any account using it.</span></div>`;
+      breachDiv2.innerHTML = '<div class="danger-banner">⚠ FOUND IN ' + count.toLocaleString() + ' KNOWN DATA BREACHES<br><span style="font-size:12px; opacity:0.7;">Change this password immediately on any account using it.</span></div>';
     }
   } catch (e) {
-    if (document.getElementById('breach-check-result')) {
-      document.getElementById('breach-check-result').innerHTML = '<p class="placeholder-text" style="font-size:11px;">Breach check unavailable.</p>';
-    }
+    const breachDiv3 = document.getElementById('breach-check-result');
+    if (breachDiv3) breachDiv3.innerHTML = '<p class="placeholder-text" style="font-size:13px;">Breach check unavailable.</p>';
   }
 }
 
@@ -431,117 +199,394 @@ function renderPasswordAnalysis(password) {
   const numbers = (password.match(/[0-9]/g) || []).length;
   const symbols = (password.match(/[^a-zA-Z0-9]/g) || []).length;
 
-  resultDiv.innerHTML = `
-    <div class="breach-card" style="border-left-color:${strengthColor}">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <div class="breach-name" style="color:${strengthColor}; font-size:15px;">STRENGTH: ${strengthLabel}</div>
-        <div style="width:48px; height:48px; border-radius:50%; border:2px solid ${strengthColor}; display:flex; align-items:center; justify-content:center; font-family:var(--font-title); font-size:16px; font-weight:900; color:${strengthColor}; box-shadow:0 0 12px ${strengthColor}40;">${grade}</div>
-      </div>
-
-      <div style="margin:12px 0;">
-        <div style="background:#0a0f1e; border-radius:2px; height:8px; width:100%;">
-          <div style="background:${strengthColor}; height:8px; width:${strengthPercent}%; border-radius:2px; box-shadow:0 0 8px ${strengthColor}; transition:width 0.3s;"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-top:4px;">
-          <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);">WEAK</span>
-          <span style="font-family:var(--font-mono); font-size:10px; color:${strengthColor};">${score}/6</span>
-          <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);">STRONG</span>
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
-        <div style="background:var(--bg-secondary); padding:12px; border-radius:3px; border:1px solid var(--border);">
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:4px;">ENTROPY</div>
-          <div style="font-family:var(--font-title); font-size:20px; color:${strengthColor};">${entropy} <span style="font-size:11px;">bits</span></div>
-        </div>
-        <div style="background:var(--bg-secondary); padding:12px; border-radius:3px; border:1px solid var(--border);">
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:4px;">CRACK TIME</div>
-          <div style="font-family:var(--font-title); font-size:14px; color:${strengthColor}; word-break:break-word;">${crackTime}</div>
-        </div>
-      </div>
-
-      <div style="margin-bottom:16px;">
-        <div style="font-family:var(--font-mono); font-size:10px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">CHARACTER BREAKDOWN</div>
-        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; text-align:center;">
-          <div style="background:var(--bg-secondary); padding:8px; border-radius:3px; border:1px solid var(--border);">
-            <div style="font-family:var(--font-title); font-size:18px; color:#60a5fa;">${lower}</div>
-            <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-dim);">LOWER</div>
-          </div>
-          <div style="background:var(--bg-secondary); padding:8px; border-radius:3px; border:1px solid var(--border);">
-            <div style="font-family:var(--font-title); font-size:18px; color:#a78bfa;">${upper}</div>
-            <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-dim);">UPPER</div>
-          </div>
-          <div style="background:var(--bg-secondary); padding:8px; border-radius:3px; border:1px solid var(--border);">
-            <div style="font-family:var(--font-title); font-size:18px; color:#34d399;">${numbers}</div>
-            <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-dim);">NUMBERS</div>
-          </div>
-          <div style="background:var(--bg-secondary); padding:8px; border-radius:3px; border:1px solid var(--border);">
-            <div style="font-family:var(--font-title); font-size:18px; color:#fb7185;">${symbols}</div>
-            <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-dim);">SYMBOLS</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-bottom:16px;">
-        <div style="font-family:var(--font-mono); font-size:10px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">SECURITY CHECKS</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
-          ${[
-            ['8+ characters', checks.length8],
-            ['12+ characters', checks.length12],
-            ['16+ characters', checks.length16],
-            ['Uppercase letters', checks.hasUpper],
-            ['Lowercase letters', checks.hasLower],
-            ['Numbers', checks.hasNumber],
-            ['Special symbols', checks.hasSymbol],
-            ['No repeated chars', checks.noRepeat],
-            ['No sequential patterns', checks.noSequential],
-            ['No keyboard walks', checks.noKeyboardWalk],
-            ['Not a common password', checks.noCommon]
-          ].map(([label, passed]) => `
-            <div style="font-family:var(--font-mono); font-size:11px; color:${passed ? '#10b981' : '#ef4444'};">
-              ${passed ? '✓' : '✗'} ${label}
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      ${suggestions.length > 0 ? `
-      <div style="margin-bottom:16px;">
-        <div style="font-family:var(--font-mono); font-size:10px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">RECOMMENDATIONS</div>
-        ${suggestions.map(s => `<div style="font-family:var(--font-mono); font-size:11px; color:#f59e0b; margin-bottom:3px;">▸ ${s}</div>`).join('')}
-      </div>` : ''}
-
-      <div id="breach-check-result"><p class="loading" style="font-size:11px;">Checking breach database...</p></div>
-    </div>
-  `;
+  resultDiv.innerHTML =
+    '<div class="breach-card" style="border-left-color:' + strengthColor + '">' +
+    '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+    '<div class="breach-name" style="color:' + strengthColor + '; font-size:16px;">STRENGTH: ' + strengthLabel + '</div>' +
+    '<div style="width:52px; height:52px; border-radius:50%; border:2px solid ' + strengthColor + '; display:flex; align-items:center; justify-content:center; font-family:var(--font-title); font-size:18px; font-weight:900; color:' + strengthColor + '; box-shadow:0 0 14px ' + strengthColor + '40;">' + grade + '</div>' +
+    '</div>' +
+    '<div style="margin:12px 0;">' +
+    '<div style="background:#0a0f1e; border-radius:2px; height:8px; width:100%;">' +
+    '<div style="background:' + strengthColor + '; height:8px; width:' + strengthPercent + '%; border-radius:2px; box-shadow:0 0 8px ' + strengthColor + '; transition:width 0.3s;"></div>' +
+    '</div>' +
+    '<div style="display:flex; justify-content:space-between; margin-top:6px;">' +
+    '<span style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">WEAK</span>' +
+    '<span style="font-family:var(--font-mono); font-size:12px; color:' + strengthColor + ';">' + score + '/6</span>' +
+    '<span style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">STRONG</span>' +
+    '</div></div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px;">' +
+    '<div style="background:var(--bg-secondary); padding:14px; border-radius:3px; border:1px solid var(--border);">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:6px;">ENTROPY</div>' +
+    '<div style="font-family:var(--font-title); font-size:22px; color:' + strengthColor + ';">' + entropy + ' <span style="font-size:13px;">bits</span></div>' +
+    '</div>' +
+    '<div style="background:var(--bg-secondary); padding:14px; border-radius:3px; border:1px solid var(--border);">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:6px;">CRACK TIME</div>' +
+    '<div style="font-family:var(--font-title); font-size:16px; color:' + strengthColor + '; word-break:break-word;">' + crackTime + '</div>' +
+    '</div></div>' +
+    '<div style="margin-bottom:18px;">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">CHARACTER BREAKDOWN</div>' +
+    '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; text-align:center;">' +
+    '<div style="background:var(--bg-secondary); padding:12px; border-radius:3px; border:1px solid var(--border);"><div style="font-family:var(--font-title); font-size:20px; color:#60a5fa;">' + lower + '</div><div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">LOWER</div></div>' +
+    '<div style="background:var(--bg-secondary); padding:12px; border-radius:3px; border:1px solid var(--border);"><div style="font-family:var(--font-title); font-size:20px; color:#a78bfa;">' + upper + '</div><div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">UPPER</div></div>' +
+    '<div style="background:var(--bg-secondary); padding:12px; border-radius:3px; border:1px solid var(--border);"><div style="font-family:var(--font-title); font-size:20px; color:#34d399;">' + numbers + '</div><div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">NUMBERS</div></div>' +
+    '<div style="background:var(--bg-secondary); padding:12px; border-radius:3px; border:1px solid var(--border);"><div style="font-family:var(--font-title); font-size:20px; color:#fb7185;">' + symbols + '</div><div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">SYMBOLS</div></div>' +
+    '</div></div>' +
+    '<div style="margin-bottom:18px;">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SECURITY CHECKS</div>' +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">' +
+    [['8+ characters', checks.length8], ['12+ characters', checks.length12], ['16+ characters', checks.length16], ['Uppercase letters', checks.hasUpper], ['Lowercase letters', checks.hasLower], ['Numbers', checks.hasNumber], ['Special symbols', checks.hasSymbol], ['No repeated chars', checks.noRepeat], ['No sequential patterns', checks.noSequential], ['No keyboard walks', checks.noKeyboardWalk], ['Not a common password', checks.noCommon]].map(function(item) {
+      return '<div style="font-family:var(--font-mono); font-size:13px; color:' + (item[1] ? '#10b981' : '#ef4444') + ';">' + (item[1] ? '✓' : '✗') + ' ' + item[0] + '</div>';
+    }).join('') +
+    '</div></div>' +
+    (suggestions.length > 0 ?
+    '<div style="margin-bottom:18px;">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">RECOMMENDATIONS</div>' +
+    suggestions.map(function(s) { return '<div style="font-family:var(--font-mono); font-size:13px; color:#f59e0b; margin-bottom:4px;">▸ ' + s + '</div>'; }).join('') +
+    '</div>' : '') +
+    '<div id="breach-check-result"><p class="loading" style="font-size:13px;">Checking breach database...</p></div>' +
+    '</div>';
 
   clearTimeout(breachCheckTimeout);
-  breachCheckTimeout = setTimeout(() => runBreachCheck(password), 600);
+  breachCheckTimeout = setTimeout(function() { runBreachCheck(password); }, 600);
 }
 
-// LIVE ANALYSIS
-document.getElementById('password-input').addEventListener('input', (e) => {
+document.getElementById('password-input').addEventListener('input', function(e) {
   renderPasswordAnalysis(e.target.value);
 });
 
-
-
-document.getElementById('password-input').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') renderPasswordAnalysis(e.target.value);
+document.getElementById('password-input').addEventListener('paste', function(e) {
+  setTimeout(function() { renderPasswordAnalysis(e.target.value); }, 50);
 });
 
-// PASSWORD GENERATOR
-document.getElementById('generate-pw-btn').addEventListener('click', () => {
+document.getElementById('generate-pw-btn').addEventListener('click', function() {
   const pwd = generatePassword();
   const input = document.getElementById('password-input');
   input.type = 'text';
   input.value = pwd;
   document.getElementById('toggle-pw').style.color = '#f59e0b';
   renderPasswordAnalysis(pwd);
+  navigator.clipboard.writeText(pwd).then(function() {
+    const btn = document.getElementById('generate-pw-btn');
+    btn.textContent = '✓ COPIED';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
+    setTimeout(function() {
+      btn.textContent = '⚡ GENERATE';
+      btn.style.color = '#64748b';
+      btn.style.borderColor = '#1e2d4a';
+    }, 2000);
+  });
 });
 
-// PASTE SUPPORT FOR PASSWORD
-document.getElementById('password-input').addEventListener('paste', (e) => {
-  setTimeout(() => renderPasswordAnalysis(e.target.value), 50);
+// ============================================================
+// IP / DOMAIN INVESTIGATOR — ULTIMATE EDITION
+// ============================================================
+const KNOWN_SAFE = {
+  '8.8.8.8': 'Google Public DNS',
+  '8.8.4.4': 'Google Public DNS',
+  '1.1.1.1': 'Cloudflare DNS',
+  '1.0.0.1': 'Cloudflare DNS',
+  '1.1.1.2': 'Cloudflare DNS (Malware Blocking)',
+  '1.1.1.3': 'Cloudflare DNS (Adult Content Blocking)',
+  '9.9.9.9': 'Quad9 DNS',
+  '149.112.112.112': 'Quad9 DNS',
+  '208.67.222.222': 'OpenDNS',
+  '208.67.220.220': 'OpenDNS',
+  '208.67.222.123': 'OpenDNS FamilyShield',
+  '208.67.220.123': 'OpenDNS FamilyShield',
+  '4.2.2.1': 'Level3 DNS',
+  '4.2.2.2': 'Level3 DNS',
+  '4.2.2.3': 'Level3 DNS',
+  '4.2.2.4': 'Level3 DNS',
+  '64.6.64.6': 'Verisign DNS',
+  '64.6.65.6': 'Verisign DNS',
+  '8.26.56.26': 'Comodo Secure DNS',
+  '8.20.247.20': 'Comodo Secure DNS',
+  '185.228.168.9': 'CleanBrowsing DNS',
+  '185.228.169.9': 'CleanBrowsing DNS',
+  '76.76.19.19': 'Alternate DNS',
+  '76.223.122.150': 'Alternate DNS',
+  '204.79.197.200': 'Microsoft Bing',
+  '13.107.42.14': 'Microsoft Teams',
+  '13.107.6.152': 'Microsoft Office 365',
+  '17.172.224.47': 'Apple iCloud',
+  '104.18.6.192': 'OpenAI',
+  '104.18.7.192': 'OpenAI',
+  '140.82.112.0': 'GitHub',
+  '185.199.108.0': 'GitHub Pages',
+  '62.38.0.0': 'Cosmote Greece',
+  '62.39.0.0': 'Cosmote Greece',
+  '46.10.0.0': 'Cosmote Greece',
+  '46.11.0.0': 'Cosmote Greece',
+  '176.63.0.0': 'Cosmote Greece',
+  '94.64.0.0': 'Vodafone Greece',
+  '94.65.0.0': 'Vodafone Greece',
+  '94.66.0.0': 'Vodafone Greece',
+  '94.67.0.0': 'Vodafone Greece',
+  '195.167.0.0': 'Vodafone Greece',
+  '212.205.0.0': 'Wind Hellas',
+  '212.206.0.0': 'Wind Hellas',
+  '94.70.0.0': 'Wind Hellas',
+  '94.71.0.0': 'Wind Hellas',
+  '195.130.0.0': 'Forthnet Greece',
+  '83.235.0.0': 'Forthnet Greece',
+  '185.31.28.0': 'Nova Greece',
+  '195.251.0.0': 'GRNET',
+  '195.252.0.0': 'GRNET',
+  '83.212.0.0': 'GRNET',
+  '83.213.0.0': 'GRNET',
+  '147.102.0.0': 'University of Athens',
+  '147.27.0.0': 'Aristotle University Thessaloniki',
+  '193.92.0.0': 'Greek Government Network',
+  '194.219.0.0': 'Greek Government Network',
+  '77.235.32.0': 'OTE Group Greece',
+  '78.87.0.0': 'OTE Group Greece',
+  '78.88.0.0': 'OTE Group Greece',
+  '109.242.0.0': 'OTE Group Greece'
+};
+
+const KNOWN_MALICIOUS = [
+  '185.220.101.', '185.220.100.', '185.220.102.', '185.220.103.',
+  '185.107.57.', '185.129.62.', '185.163.45.', '185.170.114.',
+  '162.247.74.', '171.25.193.', '176.10.104.', '176.10.99.',
+  '199.87.154.', '199.249.223.', '199.249.224.', '199.249.228.',
+  '77.247.181.', '46.165.230.', '46.165.221.', '46.165.222.',
+  '51.15.43.', '51.75.144.', '51.75.52.',
+  '5.188.86.', '5.188.87.', '5.188.10.', '5.188.11.',
+  '45.142.212.', '45.142.213.', '45.153.160.', '45.153.161.',
+  '91.219.236.', '91.219.237.', '91.219.238.', '91.219.239.',
+  '194.165.16.', '194.165.17.', '194.165.18.', '194.165.19.',
+  '193.32.162.', '193.32.163.', '193.32.164.',
+  '89.248.167.', '89.248.168.', '89.248.169.',
+  '80.82.77.', '80.82.78.',
+  '185.156.73.', '185.156.74.',
+  '92.63.194.', '92.63.195.', '92.63.196.',
+  '23.129.64.', '23.129.65.',
+  '198.98.51.', '198.98.52.', '198.98.53.',
+  '107.189.10.', '107.189.11.', '107.189.12.',
+  '185.234.216.', '185.234.217.', '185.234.218.', '185.234.219.',
+  '45.61.136.', '45.61.137.', '45.61.138.', '45.61.139.',
+  '104.244.76.', '104.244.77.', '104.244.78.', '104.244.79.'
+];
+
+const PRIVATE_RANGES = [
+  { pattern: /^10\./, label: 'Class A Private (10.0.0.0/8)' },
+  { pattern: /^172\.(1[6-9]|2[0-9]|3[0-1])\./, label: 'Class B Private (172.16.0.0/12)' },
+  { pattern: /^192\.168\./, label: 'Class C Private (192.168.0.0/16)' },
+  { pattern: /^127\./, label: 'Loopback / Localhost' },
+  { pattern: /^169\.254\./, label: 'Link-Local (APIPA)' },
+  { pattern: /^::1$/, label: 'IPv6 Loopback' },
+  { pattern: /^fc00:/, label: 'IPv6 Unique Local' },
+  { pattern: /^fe80:/, label: 'IPv6 Link-Local' }
+];
+
+function getPrivateRange(ip) {
+  for (const range of PRIVATE_RANGES) {
+    if (range.pattern.test(ip)) return range.label;
+  }
+  return null;
+}
+
+function isKnownSafe(ip) {
+  if (KNOWN_SAFE[ip]) return KNOWN_SAFE[ip];
+  for (const prefix of Object.keys(KNOWN_SAFE)) {
+    if (prefix.endsWith('.0') && ip.startsWith(prefix.slice(0, -1))) return KNOWN_SAFE[prefix];
+  }
+  return null;
+}
+
+function countryCodeToFlag(code) {
+  if (!code || code.length !== 2) return '';
+  return code.toUpperCase().replace(/./g, function(char) {
+    return String.fromCodePoint(127397 + char.charCodeAt(0));
+  });
+}
+
+let ipSearchHistory = [];
+
+function addToHistory(query, threat, color) {
+  ipSearchHistory = ipSearchHistory.filter(function(h) { return h.query !== query; });
+  ipSearchHistory.unshift({ query: query, threat: threat, color: color });
+  if (ipSearchHistory.length > 10) ipSearchHistory.pop();
+  renderIPHistory();
+}
+
+function renderIPHistory() {
+  const histDiv = document.getElementById('ip-history');
+  if (!histDiv) return;
+  if (ipSearchHistory.length === 0) {
+    histDiv.innerHTML = '<p class="placeholder-text" style="font-size:12px;">No recent searches</p>';
+    return;
+  }
+  histDiv.innerHTML = ipSearchHistory.map(function(h) {
+    return '<div onclick="loadFromHistory(\'' + h.query + '\')" style="cursor:pointer; padding:10px 14px; margin-bottom:6px; background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + h.color + '; border-radius:2px; font-family:var(--font-mono); font-size:12px; color:' + h.color + ';" onmouseover="this.style.background=\'var(--amber-glow)\'" onmouseout="this.style.background=\'var(--bg-secondary)\'">' + h.query + ' <span style="color:var(--text-dim); font-size:11px;">— ' + h.threat + '</span></div>';
+  }).join('');
+}
+
+function loadFromHistory(query) {
+  document.getElementById('ip-input').value = query;
+  investigateIP();
+}
+
+function copyIPReport() {
+  const reportEl = document.getElementById('ip-report-text');
+  if (!reportEl) return;
+  navigator.clipboard.writeText(reportEl.innerText).then(function() {
+    const btn = document.getElementById('copy-ip-btn');
+    if (btn) {
+      btn.textContent = '✓ COPIED';
+      btn.style.color = '#10b981';
+      btn.style.borderColor = '#10b981';
+      setTimeout(function() { btn.textContent = '⎘ COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+    }
+  });
+}
+
+function exportIPPDF() {
+  const reportEl = document.getElementById('ip-report-text');
+  if (!reportEl) return;
+  const target = document.getElementById('ip-input').value.trim();
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write('<html><head><title>Aegis Threat Report — ' + target + '</title><style>body{background:#020818;color:#e2e8f0;font-family:Courier New,monospace;padding:40px;}h1{color:#f59e0b;font-size:20px;letter-spacing:4px;border-bottom:1px solid #f59e0b;padding-bottom:12px;margin-bottom:24px;}.footer{margin-top:40px;border-top:1px solid #1e2d4a;padding-top:12px;color:#64748b;font-size:11px;}</style></head><body><h1>AEGIS THREAT INTELLIGENCE REPORT</h1><p style="color:#64748b;font-size:12px;margin-bottom:24px;">Generated: ' + new Date().toUTCString() + ' | Target: ' + target + '</p><div>' + reportEl.innerText.replace(/\n/g, '<br>') + '</div><div class="footer">Generated by Aegis Security Intelligence Dashboard | Powered by ip-api.com & Aegis Intelligence Engine</div></body></html>');
+  printWindow.document.close();
+  setTimeout(function() { printWindow.print(); }, 500);
+}
+
+async function investigateIP() {
+  const input = document.getElementById('ip-input').value.trim();
+  const resultDiv = document.getElementById('ip-result');
+
+  if (!input) {
+    resultDiv.innerHTML = '<p class="placeholder-text">Please enter an IP address or domain.</p>';
+    return;
+  }
+
+  const privateRange = getPrivateRange(input);
+  if (privateRange) {
+    resultDiv.innerHTML =
+      '<div class="breach-card" style="border-left-color:#a78bfa; background:rgba(167,139,250,0.08)">' +
+      '<div class="breach-name" style="color:#a78bfa; font-size:16px;">🔒 PRIVATE / INTERNAL IP</div>' +
+      '<div class="breach-detail" style="margin-top:14px;">' +
+      '<p style="color:var(--text-primary); margin-bottom:14px; font-size:14px;">This is a private network address. It exists only within a local network and cannot be traced on the public internet.</p>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
+      '<div>RANGE TYPE: <span style="color:#a78bfa">' + privateRange + '</span></div>' +
+      '<div>PUBLICLY ROUTABLE: <span style="color:#ef4444">No</span></div>' +
+      '<div>THREAT LEVEL: <span style="color:#10b981">None — Internal Only</span></div>' +
+      '<div>VISIBLE ON INTERNET: <span style="color:#ef4444">No</span></div>' +
+      '</div></div></div>';
+    return;
+  }
+
+  resultDiv.innerHTML = '<p class="loading">INVESTIGATING TARGET...</p>';
+
+  try {
+    const ipResponse = await fetch('http://ip-api.com/json/' + encodeURIComponent(input) + '?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query,lat,lon');
+    const d = await ipResponse.json();
+
+    if (d.status === 'fail') {
+      resultDiv.innerHTML = '<p class="placeholder-text">Error: ' + d.message + '</p>';
+      return;
+    }
+
+    let reverseDNS = 'No PTR record found';
+    try {
+      const dnsResponse = await fetch('https://dns.google/resolve?name=' + d.query + '&type=PTR');
+      const dnsData = await dnsResponse.json();
+      if (dnsData.Answer && dnsData.Answer.length > 0) reverseDNS = dnsData.Answer[0].data.replace(/\.$/, '');
+    } catch (e) { reverseDNS = 'Lookup failed'; }
+
+    let whoisHTML = '';
+    try {
+      const whoisResponse = await fetch('https://whoisjson.com/api/v1/whois?domain=' + encodeURIComponent(input));
+      const whoisData = await whoisResponse.json();
+      if (whoisData && !whoisData.error) {
+        const created = whoisData.created_date ? new Date(whoisData.created_date).toLocaleDateString() : 'Unknown';
+        const expires = whoisData.expiration_date ? new Date(whoisData.expiration_date).toLocaleDateString() : 'Unknown';
+        whoisHTML = '<div style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">WHOIS DATA</div><div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-family:var(--font-mono); font-size:13px; color:var(--text-dim);"><div>REGISTRAR: <span style="color:var(--text-primary)">' + (whoisData.registrar || 'Unknown') + '</span></div><div>REGISTRANT: <span style="color:var(--text-primary)">' + (whoisData.registrant_name || whoisData.registrant_org || 'Redacted') + '</span></div><div>CREATED: <span style="color:var(--text-primary)">' + created + '</span></div><div>EXPIRES: <span style="color:var(--text-primary)">' + expires + '</span></div></div></div>';
+      }
+    } catch (e) {}
+
+    let threatScore = 0;
+    let threatReasons = [];
+    const knownSafeLabel = isKnownSafe(d.query);
+    const isMalicious = KNOWN_MALICIOUS.some(function(range) { return d.query.startsWith(range); });
+    if (isMalicious) { threatScore += 80; threatReasons.push('Known malicious IP range'); }
+    if (d.proxy && !knownSafeLabel) { threatScore += 40; threatReasons.push('Proxy / VPN detected'); }
+    if (d.hosting && !knownSafeLabel) { threatScore += 20; threatReasons.push('Hosted in datacenter'); }
+    if (['CN','RU','KP','IR','NG','RO'].includes(d.countryCode) && !knownSafeLabel) { threatScore += 15; threatReasons.push('High-risk origin country'); }
+
+    let threat, threatColor, threatBg;
+    if (knownSafeLabel) { threat = 'TRUSTED'; threatColor = '#10b981'; threatBg = 'rgba(16,185,129,0.08)'; }
+    else if (threatScore >= 60) { threat = 'HIGH THREAT'; threatColor = '#ef4444'; threatBg = 'rgba(239,68,68,0.08)'; }
+    else if (threatScore >= 25) { threat = 'SUSPICIOUS'; threatColor = '#f59e0b'; threatBg = 'rgba(245,158,11,0.08)'; }
+    else { threat = 'CLEAN'; threatColor = '#10b981'; threatBg = 'rgba(16,185,129,0.08)'; }
+
+    const barWidth = knownSafeLabel ? 0 : Math.min(threatScore, 100);
+    const flag = countryCodeToFlag(d.countryCode);
+    addToHistory(d.query, threat, threatColor);
+
+    resultDiv.innerHTML =
+      '<div id="ip-report-text" class="breach-card" style="border-left-color:' + threatColor + '; background:' + threatBg + '">' +
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; gap:8px;">' +
+      '<div class="breach-name" style="color:' + threatColor + '; font-size:16px;">' + threat + ' — ' + d.query + '</div>' +
+      '<div style="display:flex; gap:8px;">' +
+      '<button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:11px; padding:8px 16px;">⎘ COPY</button>' +
+      '<button onclick="exportIPPDF()" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">⬇ PDF</button>' +
+      '</div></div>' +
+      (knownSafeLabel ? '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; margin-bottom:14px;">✓ Verified: ' + knownSafeLabel + '</div>' : '') +
+      (!knownSafeLabel ? '<div style="margin:14px 0;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT SCORE</div><div style="background:#0a0f1e; border-radius:2px; height:8px; width:100%;"><div style="background:' + threatColor + '; height:8px; width:' + barWidth + '%; border-radius:2px; box-shadow:0 0 8px ' + threatColor + ';"></div></div><div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-top:6px;">' + threatScore + '/100</div></div>' : '') +
+      (threatReasons.length > 0 ? '<div style="margin-bottom:14px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT INDICATORS</div>' + threatReasons.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-bottom:4px;">▸ ' + r + '</div>'; }).join('') + '</div>' : '') +
+      '<div class="breach-detail" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">' +
+      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">NETWORK INTELLIGENCE</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
+      '<div>REVERSE DNS: <span style="color:var(--text-primary)">' + reverseDNS + '</span></div>' +
+      '<div>COUNTRY: <span>' + flag + ' ' + d.country + ' (' + d.countryCode + ')</span></div>' +
+      '<div>REGION: <span>' + d.regionName + '</span></div>' +
+      '<div>CITY: <span>' + d.city + '</span></div>' +
+      '<div>ISP: <span>' + d.isp + '</span></div>' +
+      '<div>ORGANIZATION: <span>' + d.org + '</span></div>' +
+      '<div>AS NUMBER: <span>' + d.as + '</span></div>' +
+      '<div>COORDINATES: <span>' + d.lat + ', ' + d.lon + '</span></div>' +
+      '<div>PROXY / VPN: <span style="color:' + (d.proxy && !knownSafeLabel ? '#ef4444' : '#10b981') + '">' + (d.proxy && !knownSafeLabel ? 'YES ⚠' : 'No') + '</span></div>' +
+      '<div>DATACENTER: <span style="color:' + (d.hosting && !knownSafeLabel ? '#f59e0b' : '#10b981') + '">' + (d.hosting && !knownSafeLabel ? 'YES ⚡' : 'No') + '</span></div>' +
+      '</div></div>' +
+      whoisHTML +
+      '<div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">' +
+      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">GEOLOCATION MAP</div>' +
+      '<iframe width="100%" height="320" frameborder="0" scrolling="no" style="border-radius:3px; border:1px solid var(--border); filter:grayscale(0.3) invert(0.9) hue-rotate(180deg);" src="https://www.openstreetmap.org/export/embed.html?bbox=' + (d.lon-2) + ',' + (d.lat-2) + ',' + (d.lon+2) + ',' + (d.lat+2) + '&layer=mapnik&marker=' + d.lat + ',' + d.lon + '"></iframe>' +
+      '</div></div>' +
+      '<div class="result-label" style="margin-top:10px;">Data sourced from ip-api.com · Threat scoring by Aegis Intelligence Engine · ' + new Date().toUTCString() + '</div>';
+
+  } catch (error) {
+    resultDiv.innerHTML = '<p class="placeholder-text">Error: ' + error.message + '</p>';
+  }
+}
+
+document.getElementById('ip-btn').addEventListener('click', investigateIP);
+document.getElementById('ip-input').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') investigateIP();
+});
+
+document.getElementById('my-ip-btn').addEventListener('click', async function() {
+  const btn = document.getElementById('my-ip-btn');
+  btn.textContent = 'LOCATING...';
+  btn.style.opacity = '0.6';
+  try {
+    const response = await fetch('https://api64.ipify.org?format=json');
+    const data = await response.json();
+    document.getElementById('ip-input').value = data.ip;
+    btn.textContent = '⌖ MY IP';
+    btn.style.opacity = '1';
+    investigateIP();
+  } catch (e) {
+    btn.textContent = '⌖ MY IP';
+    btn.style.opacity = '1';
+    document.getElementById('ip-result').innerHTML = '<p class="placeholder-text">Could not detect your IP. Try again.</p>';
+  }
+});
+
+document.getElementById('clear-ip-btn').addEventListener('click', function() {
+  document.getElementById('ip-input').value = '';
+  document.getElementById('ip-result').innerHTML = '<p class="placeholder-text">Enter an IP address or domain to investigate.</p>';
 });
 
