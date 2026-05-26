@@ -533,7 +533,7 @@ async function investigateIP() {
   resultDiv.innerHTML = '<p class="loading">INVESTIGATING TARGET...</p>';
 
   try {
-    const ipResponse = await fetch('http://ip-api.com/json/' + encodeURIComponent(input) + '?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query,lat,lon');
+    const ipResponse = await fetch('https://ip-api.com/json/' + encodeURIComponent(input) + '?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query,lat,lon');
     const d = await ipResponse.json();
 
     if (d.status === 'fail') {
@@ -1266,7 +1266,7 @@ async function checkPublicIP() {
     const ip = ipJson.ip;
     lastPublicIP = ip;
 
-    const geoResponse = await fetch('http://ip-api.com/json/' + ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
+    const geoResponse = await fetch('https://ip-api.com/json/' + ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
     const geo = await geoResponse.json();
 
     return {
@@ -1564,7 +1564,7 @@ function getThreatLevelColor(level) {
 
 async function loadDashboardCVEs() {
   try {
-    const response = await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20', { headers: { 'apiKey': '1f729c55-3075-47ec-9758-3e877ee1db97' } });
+    const response = await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&apiKey=1f729c55-3075-47ec-9758-3e877ee1db97');
     const data = await response.json();
     if (data.vulnerabilities) {
       const cves = data.vulnerabilities.map(extractCVEData);
@@ -1595,7 +1595,7 @@ async function loadDashboardIP() {
   try {
     const response = await fetch('https://api64.ipify.org?format=json');
     const ipJson = await response.json();
-    const geoResponse = await fetch('http://ip-api.com/json/' + ipJson.ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
+    const geoResponse = await fetch('https://ip-api.com/json/' + ipJson.ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
     const geo = await geoResponse.json();
     return { ip: ipJson.ip, isVPN: geo.proxy || geo.hosting || false, country: geo.country };
   } catch (e) { return { ip: 'Unknown', isVPN: false }; }
@@ -1737,6 +1737,8 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
 
 
 
