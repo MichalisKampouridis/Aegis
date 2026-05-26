@@ -435,3 +435,28 @@ body {
 
 
 
+
+@keyframes shieldPulse {
+  0% { opacity:0; transform:scale(0.5); filter:drop-shadow(0 0 0px rgba(245,158,11,0)); }
+  60% { opacity:1; transform:scale(1.1); filter:drop-shadow(0 0 40px rgba(245,158,11,1)); }
+  100% { opacity:1; transform:scale(1); filter:drop-shadow(0 0 20px rgba(245,158,11,0.8)); }
+}
+
+@keyframes ringPulse {
+  0%, 100% { opacity:0.3; transform:scale(1); }
+  50% { opacity:0.8; transform:scale(1.05); }
+}
+
+@keyframes textFadeIn {
+  0% { opacity:0; transform:translateY(10px); }
+  100% { opacity:1; transform:translateY(0); }
+}
+
+@keyframes gridFade {
+  0% { opacity:0; }
+  100% { opacity:1; }
+}
+  50% { opacity:1; transform:scale(1.05); }
+  100% { opacity:1; transform:scale(1); }
+}
+

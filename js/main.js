@@ -1,4 +1,39 @@
-﻿// ============================================================
+﻿// SPLASH SCREEN
+function runSplash() {
+  const messages = [
+    'LOADING SECURITY MODULES...',
+    'CONNECTING TO THREAT FEEDS...',
+    'INITIALIZING CVE DATABASE...',
+    'LOADING INTELLIGENCE ENGINE...',
+    'AEGIS SYSTEMS ONLINE'
+  ];
+  const bar = document.getElementById('splash-bar');
+  const status = document.getElementById('splash-status');
+  const splash = document.getElementById('splash-screen');
+  if (!splash) return;
+  let step = 0;
+  const interval = setInterval(function() {
+    if (step < messages.length) {
+      status.textContent = messages[step];
+      bar.style.width = ((step + 1) / messages.length * 100) + '%';
+      step++;
+    } else {
+      clearInterval(interval);
+      splash.style.transition = 'opacity 0.8s ease';
+      splash.style.opacity = '0';
+      setTimeout(function() {
+        splash.style.display = 'none';
+        loadDashboard();
+      }, 800);
+    }
+  }, 500);
+}
+
+window.addEventListener('load', function() {
+  runSplash();
+});
+
+// ============================================================
 // AEGIS — PERSONAL SECURITY INTELLIGENCE DASHBOARD
 // main.js — Complete Feature Set
 // ============================================================
@@ -1597,5 +1632,6 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 window.addEventListener('load', function() {
   setTimeout(loadDashboard, 300);
 });
+
 
 
