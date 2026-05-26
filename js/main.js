@@ -614,26 +614,7 @@ function animateThreatBar() {
 // ============================================================
 // CVE THREAT FEED — FULL EDITION
 
-function extractCVEDataCircl(item) {
-  const id = item.id || item.CVE_data_meta && item.CVE_data_meta.ID || "Unknown";
-  const desc = item.summary || "No description available.";
-  const published = item.Published ? new Date(item.Published).toLocaleDateString() : "Unknown";
-  const modified = item.Modified ? new Date(item.Modified).toLocaleDateString() : "Unknown";
-  const modifiedRaw = item.Modified || item.Published || new Date().toISOString();
-  let severity = "UNKNOWN";
-  let score = null;
-  if (item.cvss) {
-    score = item.cvss;
-    if (score >= 9.0) severity = "CRITICAL";
-    else if (score >= 7.0) severity = "HIGH";
-    else if (score >= 4.0) severity = "MEDIUM";
-    else severity = "LOW";
-  }
-  const references = item.references ? item.references.slice(0, 3).map(function(r) { return { url: r }; }) : [];
-  const hasKeyword = CVE_KEYWORDS.some(function(kw) { return desc.toLowerCase().includes(kw); });
-  const matchedKeywords = CVE_KEYWORDS.filter(function(kw) { return desc.toLowerCase().includes(kw); });
-  return { id, desc, published, modified, modifiedRaw, severity, score, references, hasKeyword, matchedKeywords };
-}
+
 // ============================================================
 let allCVEs = [];
 const CVE_KEYWORDS = ['windows', 'linux', 'apache', 'chrome', 'firefox', 'android', 'ios', 'microsoft', 'adobe', 'oracle', 'cisco', 'vmware', 'nginx', 'openssl', 'php', 'python', 'java'];
@@ -697,7 +678,7 @@ function renderCVECard(cve, expanded) {
   const scoreDisplay = cve.score !== null ? cve.score.toFixed(1) : 'N/A';
   const shortDesc = cve.desc.length > 200 ? cve.desc.slice(0, 200) + '...' : cve.desc;
   const keywordBadges = cve.matchedKeywords.map(function(kw) {
-    return '<span style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; color:#f59e0b; font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:2px; margin-right:4px;">' + kw.toUpperCase() + '</span>';
+    return '<span style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; color:#f59e0b; font-family:var(--font-mono); font-size:12px; padding:4px 12px; border-radius:2px; margin-right:6px; margin-top:4px;">' + kw.toUpperCase() + '</span>';
   }).join('');
 
   return '<div id="cve-card-' + cve.id + '" style="background:' + bg + '; border:1px solid var(--border); border-left:3px solid ' + color + '; border-radius:3px; padding:18px; margin-bottom:12px;">' +
@@ -715,7 +696,7 @@ function renderCVECard(cve, expanded) {
     (cve.hasKeyword && cve.matchedKeywords.length > 0 ? '<div style="margin-bottom:10px;">' + keywordBadges + '</div>' : '') +
     '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:1.7; margin-bottom:10px;">' + (expanded ? cve.desc : shortDesc) + '</div>' +
     '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">PUBLISHED: <span style="color:var(--text-primary)">' + cve.published + '</span> &nbsp;|&nbsp; MODIFIED: <span style="color:var(--text-primary)">' + cve.modified + '</span></div>' +
-    (expanded && cve.references.length > 0 ? '<div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;"><div style="font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">REFERENCES</div>' + cve.references.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:12px; margin-bottom:4px;"><a href="' + r.url + '" target="_blank" style="color:#60a5fa; text-decoration:none;">' + r.url + '</a></div>'; }).join('') + '</div>' : '') +
+    (expanded && cve.references.length > 0 ? '<div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;"><div style="font-family:var(--font-mono); font-size:13px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">REFERENCES</div>' + cve.references.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:12px; margin-bottom:4px;"><a href="' + r.url + '" target="_blank" style="color:#60a5fa; text-decoration:none;">' + r.url + '</a></div>'; }).join('') + '</div>' : '') +
     '</div>';
 }
 
@@ -799,27 +780,7 @@ function searchCVEs(term) {
   renderCVEList();
 }
 
-function extractCVEDataCISA(item) {
-  const id = item.cveID || 'Unknown';
-  const desc = item.shortDescription || item.vulnerabilityName || 'No description available.';
-  const published = item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : 'Unknown';
-  const modified = item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'Unknown';
-  const modifiedRaw = item.dateAdded || new Date().toISOString();
-  const score = item.cvssScore ? parseFloat(item.cvssScore) : null;
-  let severity = 'UNKNOWN';
-  if (score !== null) {
-    if (score >= 9.0) severity = 'CRITICAL';
-    else if (score >= 7.0) severity = 'HIGH';
-    else if (score >= 4.0) severity = 'MEDIUM';
-    else severity = 'LOW';
-  } else {
-    severity = 'HIGH';
-  }
-  const references = item.references ? [{ url: item.references }] : [];
-  const hasKeyword = CVE_KEYWORDS.some(function(kw) { return desc.toLowerCase().includes(kw); });
-  const matchedKeywords = CVE_KEYWORDS.filter(function(kw) { return desc.toLowerCase().includes(kw); });
-  return { id, desc, published, modified, modifiedRaw, severity, score, references, hasKeyword, matchedKeywords };
-}
+
 
 async function loadCVEFeed() {
   const resultDiv = document.getElementById('cve-result');
@@ -1064,3 +1025,169 @@ function renderBriefingHistory() {
       '</div>';
   }).join('');
 }
+
+// ============================================================
+// SECURITY NEWS HEADLINES — FULL EDITION
+// ============================================================
+const NEWS_CATEGORIES = {
+  'ransomware': { label: 'RANSOMWARE', color: '#ef4444' },
+  'malware': { label: 'MALWARE', color: '#ef4444' },
+  'breach': { label: 'BREACH', color: '#ef4444' },
+  'hack': { label: 'HACK', color: '#f97316' },
+  'phishing': { label: 'PHISHING', color: '#f97316' },
+  'vulnerability': { label: 'VULNERABILITY', color: '#f59e0b' },
+  'exploit': { label: 'EXPLOIT', color: '#f59e0b' },
+  'zero-day': { label: 'ZERO-DAY', color: '#ef4444' },
+  'patch': { label: 'PATCH', color: '#84cc16' },
+  'update': { label: 'UPDATE', color: '#84cc16' },
+  'arrest': { label: 'ARREST', color: '#a78bfa' },
+  'botnet': { label: 'BOTNET', color: '#f97316' },
+  'spyware': { label: 'SPYWARE', color: '#ef4444' },
+  'ddos': { label: 'DDOS', color: '#f97316' },
+  'data leak': { label: 'DATA LEAK', color: '#ef4444' },
+  'critical': { label: 'CRITICAL', color: '#ef4444' },
+  'apt': { label: 'APT', color: '#ef4444' },
+  'nation-state': { label: 'NATION-STATE', color: '#a78bfa' }
+};
+
+function getNewsCategories(text) {
+  const lower = text.toLowerCase();
+  const found = [];
+  Object.keys(NEWS_CATEGORIES).forEach(function(key) {
+    if (lower.includes(key) && found.length < 3) {
+      found.push(NEWS_CATEGORIES[key]);
+    }
+  });
+  return found;
+}
+
+function timeAgo(dateStr) {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diff = Math.floor((now - date) / 1000);
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  return date.toLocaleDateString();
+}
+
+let allNews = [];
+let newsSearchTerm = '';
+
+function renderNewsList() {
+  const resultDiv = document.getElementById('news-result');
+  let filtered = allNews.filter(function(item) {
+    return newsSearchTerm === '' ||
+      item.title.toLowerCase().includes(newsSearchTerm) ||
+      item.source.toLowerCase().includes(newsSearchTerm);
+  });
+
+  if (filtered.length === 0) {
+    resultDiv.innerHTML = '<p class="placeholder-text">No headlines match your search.</p>';
+    return;
+  }
+
+  const searchBar = '<div style="margin-bottom:20px;"><input type="text" id="news-search" oninput="searchNews(this.value)" placeholder="Search headlines..." class="aegis-input" style="width:100%;" value="' + newsSearchTerm + '"></div>';
+
+  const lastUpdated = '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:16px;">LAST UPDATED: ' + new Date().toUTCString() + ' | ' + allNews.length + ' HEADLINES LOADED</div>';
+
+  const newsCards = filtered.map(function(item) {
+    const categories = getNewsCategories(item.title + ' ' + item.description);
+    const categoryBadges = categories.map(function(cat) {
+      return '<span style="background:rgba(0,0,0,0.3); border:1px solid ' + cat.color + '; color:' + cat.color + '; font-family:var(--font-mono); font-size:12px; padding:4px 12px; border-radius:2px; margin-right:6px; margin-top:4px;">' + cat.label + '</span>';
+    }).join('');
+
+    const borderColor = categories.length > 0 ? categories[0].color : 'var(--border)';
+
+    return '<a href="' + item.link + '" target="_blank" style="text-decoration:none;">' +
+      '<div style="background:#0f1a2e; border:1px solid #1e2d4a; border-left:3px solid ' + borderColor + '; border-radius:3px; padding:24px 28px; margin-bottom:16px; transition:all 0.2s; cursor:pointer;" onmouseover="this.style.background=\'var(--bg-secondary)\'; this.style.borderColor=\'var(--amber)\'" onmouseout="this.style.background=\'var(--bg-card)\'; this.style.borderColor=\'var(--border)\'">' +
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:12px;">' +
+      '<div style="font-family:var(--font-ui); font-size:16px; color:#cbd5e1; font-weight:600; line-height:1.6; flex:1;">' + item.title + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); white-space:nowrap;">' + timeAgo(item.pubDate) + '</div>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber);">▸ ' + item.source + '</div>' +
+      categoryBadges +
+      '</div>' +
+      (item.description ? '<div style="font-family:var(--font-ui); font-size:14px; color:#94a3b8; margin-top:10px; line-height:1.8;">' + item.description.slice(0, 150) + (item.description.length > 150 ? '...' : '') + '</div>' : '') +
+      '</div></a>';
+  }).join('');
+
+  resultDiv.innerHTML = searchBar + lastUpdated + newsCards;
+}
+
+function searchNews(term) {
+  newsSearchTerm = term.toLowerCase();
+  renderNewsList();
+}
+
+async function loadSecurityNews() {
+  const resultDiv = document.getElementById('news-result');
+  resultDiv.innerHTML = '<p class="loading">LOADING SECURITY HEADLINES...</p>';
+  allNews = [];
+  newsSearchTerm = '';
+
+  const feeds = [
+    { url: 'https://feeds.feedburner.com/TheHackersNews', source: 'The Hacker News' },
+    { url: 'https://www.bleepingcomputer.com/feed/', source: 'BleepingComputer' },
+    { url: 'https://threatpost.com/feed/', source: 'Threatpost' }
+  ];
+
+  const proxyBase = 'https://api.rss2json.com/v1/api.json?rss_url=';
+
+  try {
+    const results = await Promise.allSettled(feeds.map(function(feed) {
+      return fetch(proxyBase + encodeURIComponent(feed.url))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.status === 'ok' && data.items) {
+            return data.items.slice(0, 8).map(function(item) {
+              return {
+                title: item.title || 'No title',
+                link: item.link || '#',
+                pubDate: item.pubDate || new Date().toISOString(),
+                description: item.description ? item.description.replace(/<[^>]*>/g, '').trim() : '',
+                source: feed.source
+              };
+            });
+          }
+          return [];
+        });
+    }));
+
+    results.forEach(function(result) {
+      if (result.status === 'fulfilled') {
+        allNews = allNews.concat(result.value);
+      }
+    });
+
+    allNews.sort(function(a, b) { return new Date(b.pubDate) - new Date(a.pubDate); });
+
+    if (allNews.length === 0) {
+      resultDiv.innerHTML = '<p class="placeholder-text">Could not load news feeds. Try again later.</p>';
+      return;
+    }
+
+    renderNewsList();
+
+  } catch (error) {
+    resultDiv.innerHTML = '<p class="placeholder-text">Error loading news: ' + error.message + '</p>';
+  }
+}
+
+// Auto-load news when page is visited
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    if (item.dataset.page === 'news') {
+      setTimeout(loadSecurityNews, 100);
+    }
+  });
+});
+
+
+
+
+
+
+
