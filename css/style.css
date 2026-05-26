@@ -428,3 +428,10 @@ body {
 .threat-bar-fill {
   transition: width 1.2s ease-out !important;
 }
+
+#page-network .card {
+  overflow: visible !important;
+}
+
+
+
