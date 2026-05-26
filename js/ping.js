@@ -112,3 +112,60 @@ function initPingShortcuts() {
   panel.appendChild(body);
   shortcuts.after(panel);
 }
+
+function quickPing(name) {
+  document.getElementById('ping-input').value = name;
+  runPing();
+}
+
+function stopPing() {
+  pingRunning = false;
+  document.getElementById('ping-stop-btn').style.display = 'none';
+  const resultDiv = document.getElementById('ping-result');
+  if (pingResults.length > 0) {
+    const successful = pingResults.filter(function(r) { return r !== null; });
+    if (successful.length > 0) {
+      const min = Math.min.apply(null, successful);
+      const max = Math.max.apply(null, successful);
+      const avg = Math.round(successful.reduce(function(a, b) { return a + b; }, 0) / successful.length);
+      resultDiv.innerHTML += '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber); margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">--- PING STATISTICS ---<br>' +
+        '<span style="color:var(--text-primary);">' + pingResults.length + ' packets transmitted, ' + successful.length + ' received, ' + (pingResults.length - successful.length) + ' lost</span><br>' +
+        'MIN: <span style="color:#10b981;">' + min + 'ms</span> · AVG: <span style="color:#f59e0b;">' + avg + 'ms</span> · MAX: <span style="color:#ef4444;">' + max + 'ms</span></div>';
+    }
+  }
+}
+
+async function runPing() {
+  const input = document.getElementById('ping-input').value.trim().toLowerCase();
+  const resultDiv = document.getElementById('ping-result');
+  if (!input) return;
+
+  let host = input;
+  if (KNOWN_HOSTS[input]) host = KNOWN_HOSTS[input];
+
+  pingRunning = true;
+  pingResults = [];
+  document.getElementById('ping-stop-btn').style.display = 'block';
+
+  resultDiv.innerHTML = '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:12px;">PING ' + host + ' — 10 packets</div><div id="ping-lines"></div>';
+
+  const linesDiv = document.getElementById('ping-lines');
+
+  for (let i = 1; i <= 10; i++) {
+    if (!pingRunning) break;
+    try {
+      const start = performance.now();
+      await fetch('https://' + host + '/favicon.ico?_=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
+      const ms = Math.round(performance.now() - start);
+      pingResults.push(ms);
+      const color = ms < 100 ? '#10b981' : ms < 300 ? '#f59e0b' : '#ef4444';
+      linesDiv.innerHTML += '<div style="font-family:var(--font-mono); font-size:13px; color:' + color + '; margin-bottom:4px;">Reply from <span style="color:var(--text-primary);">' + host + '</span>: seq=' + i + ' time=<span style="font-weight:bold;">' + ms + 'ms</span> <span style="font-size:11px; background:' + color + '22; border:1px solid ' + color + '; padding:1px 6px; border-radius:2px;">' + (ms < 100 ? 'FAST' : ms < 300 ? 'OK' : 'SLOW') + '</span></div>';
+    } catch (e) {
+      pingResults.push(null);
+      linesDiv.innerHTML += '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; margin-bottom:4px;">Request timeout for seq=' + i + '</div>';
+    }
+    await new Promise(function(r) { setTimeout(r, 500); });
+  }
+
+  if (pingRunning) stopPing();
+}
