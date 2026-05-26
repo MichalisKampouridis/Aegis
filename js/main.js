@@ -1122,7 +1122,7 @@ function renderNewsList() {
     return;
   }
 
-  const searchBar = '<div style="margin-bottom:20px;"><input type="text" id="news-search" oninput="searchNews(this.value)" placeholder="Search headlines..." class="aegis-input" style="width:100%;" value="' + newsSearchTerm + '"></div>';
+  const searchBar = '';
 
   const lastUpdated = '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:16px;">LAST UPDATED: ' + new Date().toUTCString() + ' | ' + allNews.length + ' HEADLINES LOADED</div>';
 
@@ -1737,6 +1737,15 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
+
+
+
+
+
+
+
 
 
 
