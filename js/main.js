@@ -610,3 +610,274 @@ function animateThreatBar() {
 }
 
 
+
+// ============================================================
+// CVE THREAT FEED — FULL EDITION
+
+function extractCVEDataCircl(item) {
+  const id = item.id || item.CVE_data_meta && item.CVE_data_meta.ID || "Unknown";
+  const desc = item.summary || "No description available.";
+  const published = item.Published ? new Date(item.Published).toLocaleDateString() : "Unknown";
+  const modified = item.Modified ? new Date(item.Modified).toLocaleDateString() : "Unknown";
+  const modifiedRaw = item.Modified || item.Published || new Date().toISOString();
+  let severity = "UNKNOWN";
+  let score = null;
+  if (item.cvss) {
+    score = item.cvss;
+    if (score >= 9.0) severity = "CRITICAL";
+    else if (score >= 7.0) severity = "HIGH";
+    else if (score >= 4.0) severity = "MEDIUM";
+    else severity = "LOW";
+  }
+  const references = item.references ? item.references.slice(0, 3).map(function(r) { return { url: r }; }) : [];
+  const hasKeyword = CVE_KEYWORDS.some(function(kw) { return desc.toLowerCase().includes(kw); });
+  const matchedKeywords = CVE_KEYWORDS.filter(function(kw) { return desc.toLowerCase().includes(kw); });
+  return { id, desc, published, modified, modifiedRaw, severity, score, references, hasKeyword, matchedKeywords };
+}
+// ============================================================
+let allCVEs = [];
+const CVE_KEYWORDS = ['windows', 'linux', 'apache', 'chrome', 'firefox', 'android', 'ios', 'microsoft', 'adobe', 'oracle', 'cisco', 'vmware', 'nginx', 'openssl', 'php', 'python', 'java'];
+
+function getSeverityColor(severity) {
+  switch(severity) {
+    case 'CRITICAL': return '#ef4444';
+    case 'HIGH': return '#f97316';
+    case 'MEDIUM': return '#f59e0b';
+    case 'LOW': return '#84cc16';
+    default: return '#64748b';
+  }
+}
+
+function getSeverityBg(severity) {
+  switch(severity) {
+    case 'CRITICAL': return 'rgba(239,68,68,0.08)';
+    case 'HIGH': return 'rgba(249,115,22,0.08)';
+    case 'MEDIUM': return 'rgba(245,158,11,0.08)';
+    case 'LOW': return 'rgba(132,204,18,0.08)';
+    default: return 'rgba(100,116,139,0.08)';
+  }
+}
+
+function extractCVEData(item) {
+  const cve = item.cve;
+  const id = cve.id;
+  const description = cve.descriptions.find(function(d) { return d.lang === 'en'; });
+  const desc = description ? description.value : 'No description available.';
+  const published = new Date(cve.published).toLocaleDateString();
+  const modified = new Date(cve.lastModified).toLocaleDateString();
+  let severity = 'UNKNOWN';
+  let score = null;
+
+  if (cve.metrics) {
+    const cvss31 = cve.metrics.cvssMetricV31;
+    const cvss30 = cve.metrics.cvssMetricV30;
+    const cvss2 = cve.metrics.cvssMetricV2;
+    if (cvss31 && cvss31.length > 0) {
+      score = cvss31[0].cvssData.baseScore;
+      severity = cvss31[0].cvssData.baseSeverity;
+    } else if (cvss30 && cvss30.length > 0) {
+      score = cvss30[0].cvssData.baseScore;
+      severity = cvss30[0].cvssData.baseSeverity;
+    } else if (cvss2 && cvss2.length > 0) {
+      score = cvss2[0].cvssData.baseScore;
+      severity = cvss2[0].baseSeverity || 'UNKNOWN';
+    }
+  }
+
+  const references = cve.references ? cve.references.slice(0, 3) : [];
+  const hasKeyword = CVE_KEYWORDS.some(function(kw) { return desc.toLowerCase().includes(kw); });
+  const matchedKeywords = CVE_KEYWORDS.filter(function(kw) { return desc.toLowerCase().includes(kw); });
+
+  return { id, desc, published, modified, severity, score, references, hasKeyword, matchedKeywords };
+}
+
+function renderCVECard(cve, expanded) {
+  const color = getSeverityColor(cve.severity);
+  const bg = getSeverityBg(cve.severity);
+  const scoreDisplay = cve.score !== null ? cve.score.toFixed(1) : 'N/A';
+  const shortDesc = cve.desc.length > 200 ? cve.desc.slice(0, 200) + '...' : cve.desc;
+  const keywordBadges = cve.matchedKeywords.map(function(kw) {
+    return '<span style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; color:#f59e0b; font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:2px; margin-right:4px;">' + kw.toUpperCase() + '</span>';
+  }).join('');
+
+  return '<div id="cve-card-' + cve.id + '" style="background:' + bg + '; border:1px solid var(--border); border-left:3px solid ' + color + '; border-radius:3px; padding:18px; margin-bottom:12px;">' +
+    '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; gap:8px;">' +
+    '<div style="display:flex; align-items:center; gap:12px;">' +
+    '<div style="font-family:var(--font-title); font-size:14px; color:' + color + '; letter-spacing:1px;">' + cve.id + '</div>' +
+    '<div style="background:' + color + '; color:#020818; font-family:var(--font-mono); font-size:11px; font-weight:bold; padding:3px 10px; border-radius:2px;">' + cve.severity + '</div>' +
+    '<div style="font-family:var(--font-title); font-size:18px; color:' + color + ';">' + scoreDisplay + '</div>' +
+    '</div>' +
+    '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+    '<button onclick="copyCVEId(\'' + cve.id + '\')" id="copy-cve-' + cve.id + '" class="aegis-btn" style="font-size:11px; padding:6px 12px;">⎘ COPY ID</button>' +
+    '<a href="https://nvd.nist.gov/vuln/detail/' + cve.id + '" target="_blank" class="aegis-btn" style="font-size:11px; padding:6px 12px; text-decoration:none; border-color:#a78bfa; color:#a78bfa;">↗ NVD</a>' +
+    '<button onclick="toggleCVEExpand(\'' + cve.id + '\')" class="aegis-btn" style="font-size:11px; padding:6px 12px; border-color:#1e2d4a; color:#64748b;">' + (expanded ? '▲ LESS' : '▼ MORE') + '</button>' +
+    '</div></div>' +
+    (cve.hasKeyword && cve.matchedKeywords.length > 0 ? '<div style="margin-bottom:10px;">' + keywordBadges + '</div>' : '') +
+    '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:1.7; margin-bottom:10px;">' + (expanded ? cve.desc : shortDesc) + '</div>' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">PUBLISHED: <span style="color:var(--text-primary)">' + cve.published + '</span> &nbsp;|&nbsp; MODIFIED: <span style="color:var(--text-primary)">' + cve.modified + '</span></div>' +
+    (expanded && cve.references.length > 0 ? '<div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;"><div style="font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">REFERENCES</div>' + cve.references.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:12px; margin-bottom:4px;"><a href="' + r.url + '" target="_blank" style="color:#60a5fa; text-decoration:none;">' + r.url + '</a></div>'; }).join('') + '</div>' : '') +
+    '</div>';
+}
+
+function copyCVEId(id) {
+  navigator.clipboard.writeText(id).then(function() {
+    const btn = document.getElementById('copy-cve-' + id);
+    if (btn) {
+      btn.textContent = '✓ COPIED';
+      btn.style.color = '#10b981';
+      btn.style.borderColor = '#10b981';
+      setTimeout(function() { btn.textContent = '⎘ COPY ID'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+    }
+  });
+}
+
+let expandedCVEs = {};
+function toggleCVEExpand(id) {
+  expandedCVEs[id] = !expandedCVEs[id];
+  renderCVEList();
+}
+
+let activeSeverityFilter = 'ALL';
+let cveSearchTerm = '';
+
+function renderCVEList() {
+  const resultDiv = document.getElementById('cve-result');
+  if (allCVEs.length === 0) return;
+
+  let filtered = allCVEs.filter(function(cve) {
+    const matchesSeverity = activeSeverityFilter === 'ALL' || cve.severity === activeSeverityFilter;
+    const matchesSearch = cveSearchTerm === '' ||
+      cve.id.toLowerCase().includes(cveSearchTerm) ||
+      cve.desc.toLowerCase().includes(cveSearchTerm);
+    return matchesSeverity && matchesSearch;
+  });
+
+  const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+  allCVEs.forEach(function(cve) { counts[cve.severity] = (counts[cve.severity] || 0) + 1; });
+
+  const total = allCVEs.length;
+  const statsBar =
+    '<div style="margin-bottom:20px;">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SEVERITY BREAKDOWN — ' + total + ' VULNERABILITIES</div>' +
+    '<div style="display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden; margin-bottom:12px;">' +
+    (counts.CRITICAL > 0 ? '<div style="background:#ef4444; flex:' + counts.CRITICAL + '; transition:flex 0.5s;" title="CRITICAL: ' + counts.CRITICAL + '"></div>' : '') +
+    (counts.HIGH > 0 ? '<div style="background:#f97316; flex:' + counts.HIGH + '; transition:flex 0.5s;" title="HIGH: ' + counts.HIGH + '"></div>' : '') +
+    (counts.MEDIUM > 0 ? '<div style="background:#f59e0b; flex:' + counts.MEDIUM + '; transition:flex 0.5s;" title="MEDIUM: ' + counts.MEDIUM + '"></div>' : '') +
+    (counts.LOW > 0 ? '<div style="background:#84cc16; flex:' + counts.LOW + '; transition:flex 0.5s;" title="LOW: ' + counts.LOW + '"></div>' : '') +
+    (counts.UNKNOWN > 0 ? '<div style="background:#64748b; flex:' + counts.UNKNOWN + '; transition:flex 0.5s;" title="UNKNOWN: ' + counts.UNKNOWN + '"></div>' : '') +
+    '</div>' +
+    '<div style="display:flex; gap:12px; flex-wrap:wrap;">' +
+    ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(function(sev) {
+      const isActive = activeSeverityFilter === sev;
+      const col = sev === 'ALL' ? '#f59e0b' : getSeverityColor(sev);
+      const cnt = sev === 'ALL' ? total : (counts[sev] || 0);
+      return '<button onclick="setCVEFilter(\'' + sev + '\')" style="background:' + (isActive ? col : 'transparent') + '; border:1px solid ' + col + '; color:' + (isActive ? '#020818' : col) + '; font-family:var(--font-mono); font-size:11px; padding:6px 14px; border-radius:2px; cursor:pointer; transition:all 0.2s;">' + sev + ' (' + cnt + ')</button>';
+    }).join('') +
+    '</div></div>';
+
+  const searchBar =
+    '<div style="margin-bottom:20px;">' +
+    '<input type="text" id="cve-search" oninput="searchCVEs(this.value)" placeholder="Search CVEs by ID or keyword..." class="aegis-input" style="width:100%;" value="' + cveSearchTerm + '">' +
+    '</div>';
+
+  const lastUpdated = '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:16px;">LAST UPDATED: ' + new Date().toUTCString() + ' &nbsp;|&nbsp; SOURCE: NVD (National Vulnerability Database)</div>';
+
+  const cveCards = filtered.length > 0
+    ? filtered.map(function(cve) { return renderCVECard(cve, expandedCVEs[cve.id]); }).join('')
+    : '<p class="placeholder-text">No CVEs match your current filter.</p>';
+
+  resultDiv.innerHTML = statsBar + searchBar + lastUpdated + cveCards;
+}
+
+function setCVEFilter(severity) {
+  activeSeverityFilter = severity;
+  renderCVEList();
+}
+
+function searchCVEs(term) {
+  cveSearchTerm = term.toLowerCase();
+  renderCVEList();
+}
+
+function extractCVEDataCISA(item) {
+  const id = item.cveID || 'Unknown';
+  const desc = item.shortDescription || item.vulnerabilityName || 'No description available.';
+  const published = item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : 'Unknown';
+  const modified = item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'Unknown';
+  const modifiedRaw = item.dateAdded || new Date().toISOString();
+  const score = item.cvssScore ? parseFloat(item.cvssScore) : null;
+  let severity = 'UNKNOWN';
+  if (score !== null) {
+    if (score >= 9.0) severity = 'CRITICAL';
+    else if (score >= 7.0) severity = 'HIGH';
+    else if (score >= 4.0) severity = 'MEDIUM';
+    else severity = 'LOW';
+  } else {
+    severity = 'HIGH';
+  }
+  const references = item.references ? [{ url: item.references }] : [];
+  const hasKeyword = CVE_KEYWORDS.some(function(kw) { return desc.toLowerCase().includes(kw); });
+  const matchedKeywords = CVE_KEYWORDS.filter(function(kw) { return desc.toLowerCase().includes(kw); });
+  return { id, desc, published, modified, modifiedRaw, severity, score, references, hasKeyword, matchedKeywords };
+}
+
+async function loadCVEFeed() {
+  const resultDiv = document.getElementById('cve-result');
+  resultDiv.innerHTML = '<p class="loading">PULLING LATEST CVE DATA FROM NVD...</p>';
+  allCVEs = [];
+  expandedCVEs = {};
+  activeSeverityFilter = 'ALL';
+  cveSearchTerm = '';
+
+  try {
+    const response = await fetch('https://api.codetabs.com/v1/proxy?quest=https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json');
+    const data = await response.json();
+
+    if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
+      resultDiv.innerHTML = '<p class="placeholder-text">No CVE data available right now. Try again later.</p>';
+      return;
+    }
+
+    allCVEs = data.vulnerabilities.slice(0, 20).reverse().map(extractCVEDataCISA);
+    renderCVEList();
+
+  } catch (error) {
+    resultDiv.innerHTML = '<p class="placeholder-text">Error loading CVE feed: ' + error.message + '</p>';
+  }
+}
+
+// Auto-load CVE feed when page is visited
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    if (item.dataset.page === 'cve') {
+      setTimeout(loadCVEFeed, 100);
+    }
+  });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

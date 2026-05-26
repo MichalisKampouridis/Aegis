@@ -98,7 +98,7 @@
       <div class="page" id="page-cve">
         <div class="card">
           <div class="card-header">CVE THREAT FEED</div>
-          <div class="result-area" id="cve-result"><p class="placeholder-text">Loading latest CVEs...</p></div>
+          <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;"><button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">⟳ LOAD CVE FEED</button><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Source: US National Vulnerability Database (NVD)</div></div><div class="result-area" id="cve-result"><p class="placeholder-text">Click LOAD CVE FEED to pull the latest vulnerabilities.</p></div>
         </div>
       </div>
       <div class="page" id="page-briefing">
@@ -122,6 +122,7 @@
 <script src="js/main.js"></script>
 </body>
 </html>
+
 
 
 
