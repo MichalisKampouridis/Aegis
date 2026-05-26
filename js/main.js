@@ -533,7 +533,7 @@ async function investigateIP() {
   resultDiv.innerHTML = '<p class="loading">INVESTIGATING TARGET...</p>';
 
   try {
-    const ipResponse = await fetch('https://ipwho.is/' + encodeURIComponent(input) + '?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query,lat,lon');
+    const ipResponse = await fetch('https://ipapi.co/' + encodeURIComponent(input) + '?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query,lat,lon');
     const d = await ipResponse.json();
 
     if (d.status === 'fail') {
@@ -1266,7 +1266,7 @@ async function checkPublicIP() {
     const ip = ipJson.ip;
     lastPublicIP = ip;
 
-    const geoResponse = await fetch('https://ipwho.is/' + ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
+    const geoResponse = await fetch('https://ipapi.co/' + ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
     const geo = await geoResponse.json();
 
     return {
@@ -1596,7 +1596,7 @@ async function loadDashboardIP() {
   try {
     const response = await fetch('https://api64.ipify.org?format=json');
     const ipJson = await response.json();
-    const geoResponse = await fetch('https://ipwho.is/' + ipJson.ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
+    const geoResponse = await fetch('https://ipapi.co/' + ipJson.ip + '?fields=country,countryCode,city,isp,proxy,hosting,query');
     const geo = await geoResponse.json();
     return { ip: ipJson.ip, isVPN: geo.proxy || geo.hosting || false, country: geo.country };
   } catch (e) { return { ip: 'Unknown', isVPN: false }; }
@@ -1738,6 +1738,8 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
 
 
 
