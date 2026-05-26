@@ -1564,7 +1564,8 @@ function getThreatLevelColor(level) {
 
 async function loadDashboardCVEs() {
   try {
-    const response = await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20', { headers: { 'apiKey': '1f729c55-3075-47ec-9758-3e877ee1db97' } });
+    let response = await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20', { headers: { 'apiKey': '1f729c55-3075-47ec-9758-3e877ee1db97' } });
+    if (!response.ok) response = await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20');
     const data = await response.json();
     if (data.vulnerabilities) {
       const cves = data.vulnerabilities.map(extractCVEData);
@@ -1737,6 +1738,8 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
 
 
 
