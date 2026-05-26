@@ -649,35 +649,7 @@ function clearIPHistory() {
 }
 
 // ANIMATE THREAT SCORE BAR
-function animateThreatBar() {
-  const bar = document.querySelector('.threat-bar');
-  if (!bar) return;
-  const targetWidth = bar.getAttribute('data-width');
-  bar.style.width = '0%';
-  setTimeout(function() {
-    bar.style.transition = 'width 1s ease-out';
-    bar.style.width = targetWidth + '%';
-  }, 100);
-}
 
-
-
-// ============================================================
-// CVE THREAT FEED — FULL EDITION
-
-
-// ============================================================
-let allCVEs = [];
-const CVE_KEYWORDS = ['windows', 'linux', 'apache', 'chrome', 'firefox', 'android', 'ios', 'microsoft', 'adobe', 'oracle', 'cisco', 'vmware', 'nginx', 'openssl', 'php', 'python', 'java'];
-
-function getSeverityColor(severity) {
-  switch(severity) {
-    case 'CRITICAL': return '#ef4444';
-    case 'HIGH': return '#f97316';
-    case 'MEDIUM': return '#f59e0b';
-    case 'LOW': return '#84cc16';
-    default: return '#64748b';
-  }
 }
 
 function getSeverityBg(severity) {
@@ -1837,6 +1809,9 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
+
 
 
 
