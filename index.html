@@ -191,6 +191,16 @@
             <button class="aegis-btn" onclick="runNetworkScan()">⟳ RUN NETWORK SCAN</button>
           </div>
           <div id="network-result"><p class="placeholder-text">Click RUN NETWORK SCAN to analyze your connection.</p></div>
+          <div class="card" style="margin-top:24px;">
+            <div class="card-header">PING TOOL</div>
+            <div class="input-row">
+              <input type="text" id="ping-input" class="aegis-input" placeholder="Enter IP, domain, or name (e.g. google, facebook, cloudflare)...">
+              <button class="aegis-btn" onclick="runPing()">⚡ PING</button>
+              <button class="aegis-btn" id="ping-stop-btn" style="border-color:#ef4444; color:#ef4444; display:none;" onclick="stopPing()">■ STOP</button>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;" id="ping-shortcuts"></div>
+            <div id="ping-result"></div>
+          </div>
         </div>
       </div>
 
@@ -198,8 +208,14 @@
   </main>
 </div>
 <script src="js/main.js"></script>
+<script src="js/ping.js"></script>
+<script src="js/ping.js"></script>
 </body>
 </html>
+
+
+
+
 
 
 

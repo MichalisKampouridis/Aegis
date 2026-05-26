@@ -1635,3 +1635,194 @@ window.addEventListener('load', function() {
 
 
 
+
+// ============================================================
+// PING TOOL
+// ============================================================
+const KNOWN_HOSTS = {
+  // Search & Social
+  'google': 'www.google.com',
+  'facebook': 'www.facebook.com',
+  'twitter': 'twitter.com',
+  'x': 'x.com',
+  'instagram': 'www.instagram.com',
+  'youtube': 'www.youtube.com',
+  'linkedin': 'www.linkedin.com',
+  'reddit': 'www.reddit.com',
+  'tiktok': 'www.tiktok.com',
+  'snapchat': 'www.snapchat.com',
+  'pinterest': 'www.pinterest.com',
+  'tumblr': 'www.tumblr.com',
+  'discord': 'discord.com',
+  'twitch': 'www.twitch.tv',
+  'whatsapp': 'www.whatsapp.com',
+  'telegram': 'telegram.org',
+  // Tech
+  'microsoft': 'www.microsoft.com',
+  'apple': 'www.apple.com',
+  'amazon': 'www.amazon.com',
+  'netflix': 'www.netflix.com',
+  'spotify': 'www.spotify.com',
+  'github': 'github.com',
+  'stackoverflow': 'stackoverflow.com',
+  'cloudflare': '1.1.1.1',
+  'openai': 'openai.com',
+  'anthropic': 'anthropic.com',
+  'claude': 'claude.ai',
+  // DNS
+  'google dns': '8.8.8.8',
+  'cloudflare dns': '1.1.1.1',
+  'opendns': '208.67.222.222',
+  'quad9': '9.9.9.9',
+  // News & Security
+  'hackernews': 'thehackernews.com',
+  'bleepingcomputer': 'www.bleepingcomputer.com',
+  'darkreading': 'www.darkreading.com',
+  'krebs': 'krebsonsecurity.com',
+  'shodan': 'www.shodan.io',
+  'virustotal': 'www.virustotal.com',
+  'haveibeenpwned': 'haveibeenpwned.com',
+  // Greek
+  'cosmote': 'www.cosmote.gr',
+  'vodafone greece': 'www.vodafone.gr',
+  'wind': 'www.wind.gr',
+  'nova': 'www.nova.gr',
+  'forthnet': 'www.forthnet.gr',
+  'skroutz': 'www.skroutz.gr',
+  'e-shop': 'www.e-shop.gr',
+  'public': 'www.public.gr',
+  'taxisnet': 'www.taxisnet.gr',
+  'efka': 'www.efka.gov.gr',
+  // Gaming
+  'steam': 'store.steampowered.com',
+  'epicgames': 'www.epicgames.com',
+  'riot': 'www.riotgames.com',
+  'leagueoflegends': 'www.leagueoflegends.com',
+  'battlenet': 'battle.net',
+  'playstation': 'www.playstation.com',
+  'xbox': 'www.xbox.com',
+  // Education & Cybersecurity
+  'tryhackme': 'tryhackme.com',
+  'hackthebox': 'www.hackthebox.com',
+  'coursera': 'www.coursera.org',
+  'udemy': 'www.udemy.com',
+  'cybrary': 'www.cybrary.it',
+  // Cloud
+  'aws': 'aws.amazon.com',
+  'azure': 'azure.microsoft.com',
+  'gcp': 'cloud.google.com',
+  'digitalocean': 'www.digitalocean.com',
+  'heroku': 'www.heroku.com',
+  // Other
+  'wikipedia': 'www.wikipedia.org',
+  'archive': 'archive.org',
+  'pastebin': 'pastebin.com',
+  'dropbox': 'www.dropbox.com',
+  'onedrive': 'onedrive.live.com',
+  'googledrive': 'drive.google.com',
+  'gmail': 'mail.google.com',
+  'outlook': 'outlook.live.com',
+  'yahoo': 'www.yahoo.com',
+  'bing': 'www.bing.com',
+  'duckduckgo': 'duckduckgo.com',
+  'tor': 'www.torproject.org',
+  'nordvpn': 'nordvpn.com',
+  'expressvpn': 'www.expressvpn.com'
+};
+
+let pingRunning = false;
+let pingResults = [];
+
+// Populate datalist
+function initPingShortcuts() {
+  const datalist = document.getElementById('ping-suggestions');
+  const shortcuts = document.getElementById('ping-shortcuts');
+  if (!datalist || !shortcuts) return;
+
+
+
+  // Quick shortcut buttons for most common
+  const common = ['google', 'cloudflare', 'github', 'facebook', 'youtube', 'tryhackme', 'hackthebox', 'discord'];
+  shortcuts.innerHTML = common.map(function(name) {
+    return '<button onclick="quickPing(\'' + name + '\')" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-mono); font-size:12px; padding:6px 14px; border-radius:2px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor=\'var(--amber)\'; this.style.color=\'var(--amber)\'" onmouseout="this.style.borderColor=\'var(--border)\'; this.style.color=\'var(--text-dim)\'">' + name + '</button>';
+  }).join('');
+}
+
+function quickPing(name) {
+  document.getElementById('ping-input').value = name;
+  runPing();
+}
+
+function stopPing() {
+  pingRunning = false;
+  document.getElementById('ping-stop-btn').style.display = 'none';
+  const resultDiv = document.getElementById('ping-result');
+  if (pingResults.length > 0) {
+    const successful = pingResults.filter(function(r) { return r !== null; });
+    if (successful.length > 0) {
+      const min = Math.min.apply(null, successful);
+      const max = Math.max.apply(null, successful);
+      const avg = Math.round(successful.reduce(function(a, b) { return a + b; }, 0) / successful.length);
+      resultDiv.innerHTML += '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber); margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">--- PING STATISTICS ---<br>' +
+        '<span style="color:var(--text-primary);">' + pingResults.length + ' packets transmitted, ' + successful.length + ' received, ' + (pingResults.length - successful.length) + ' lost</span><br>' +
+        'MIN: <span style="color:#10b981;">' + min + 'ms</span> · AVG: <span style="color:#f59e0b;">' + avg + 'ms</span> · MAX: <span style="color:#ef4444;">' + max + 'ms</span></div>';
+    }
+  }
+}
+
+async function runPing() {
+  const input = document.getElementById('ping-input').value.trim().toLowerCase();
+  const resultDiv = document.getElementById('ping-result');
+  if (!input) return;
+
+  // Resolve host
+  let host = input;
+  if (KNOWN_HOSTS[input]) {
+    host = KNOWN_HOSTS[input];
+  }
+
+  pingRunning = true;
+  pingResults = [];
+  document.getElementById('ping-stop-btn').style.display = 'block';
+
+  resultDiv.innerHTML = '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:12px;">PING ' + host + ' — 10 packets</div><div id="ping-lines"></div>';
+
+  const linesDiv = document.getElementById('ping-lines');
+
+  for (let i = 1; i <= 10; i++) {
+    if (!pingRunning) break;
+
+    try {
+      const start = performance.now();
+      await fetch('https://' + host + '/favicon.ico?_=' + Date.now(), {
+        mode: 'no-cors',
+        cache: 'no-store'
+      });
+      const ms = Math.round(performance.now() - start);
+      pingResults.push(ms);
+
+      const color = ms < 100 ? '#10b981' : ms < 300 ? '#f59e0b' : '#ef4444';
+      linesDiv.innerHTML += '<div style="font-family:var(--font-mono); font-size:13px; color:' + color + '; margin-bottom:4px;">Reply from <span style="color:var(--text-primary);">' + host + '</span>: seq=' + i + ' time=<span style="font-weight:bold;">' + ms + 'ms</span> ' +
+        '<span style="font-size:11px; background:' + color + '22; border:1px solid ' + color + '; padding:1px 6px; border-radius:2px;">' + (ms < 100 ? 'FAST' : ms < 300 ? 'OK' : 'SLOW') + '</span></div>';
+
+    } catch (e) {
+      pingResults.push(null);
+      linesDiv.innerHTML += '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; margin-bottom:4px;">Request timeout for seq=' + i + '</div>';
+    }
+
+    await new Promise(function(r) { setTimeout(r, 500); });
+  }
+
+  if (pingRunning) stopPing();
+}
+
+// Init shortcuts when network page loads
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    if (item.dataset.page === 'network') {
+      setTimeout(initPingShortcuts, 200);
+    }
+  });
+});
+
+
