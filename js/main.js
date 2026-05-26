@@ -1,4 +1,6 @@
-﻿// SPLASH SCREEN
+﻿let allCVEs = [];
+
+// SPLASH SCREEN
 function runSplash() {
   const messages = [
     'LOADING SECURITY MODULES...',
@@ -648,8 +650,14 @@ function clearIPHistory() {
   renderIPHistory();
 }
 
-
-
+function getSeverityColor(severity) {
+  switch(severity) {
+    case 'CRITICAL': return '#ef4444';
+    case 'HIGH': return '#f97316';
+    case 'MEDIUM': return '#f59e0b';
+    case 'LOW': return '#84cc16';
+    default: return '#64748b';
+  }
 }
 
 function getSeverityBg(severity) {
@@ -666,6 +674,9 @@ function extractCVEData(item) {
   const cve = item.cve;
   const id = cve.id;
   const description = cve.descriptions.find(function(d) { return d.lang === 'en'; });
+let allCVEs = [];
+const CVE_KEYWORDS = ["windows","linux","apache","chrome","firefox","android","ios","microsoft","adobe","oracle","cisco","vmware","nginx","openssl","php","python","java"];
+
   const desc = description ? description.value : 'No description available.';
   const published = new Date(cve.published).toLocaleDateString();
   const modified = new Date(cve.lastModified).toLocaleDateString();
@@ -1726,6 +1737,13 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
+
+
+
+
+
 
 
 
