@@ -68,9 +68,22 @@ navItems.forEach(item => {
 });
 
 // LIVE CLOCK
+let showUTC = false;
 function updateClock() {
   const now = new Date();
-  document.getElementById('live-time').textContent = now.toUTCString().replace('GMT', 'UTC');
+  const timeEl = document.getElementById('live-time');
+  if (!timeEl) return;
+  if (showUTC) {
+    timeEl.textContent = now.toUTCString().replace('GMT', 'UTC');
+  } else {
+    const ath = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Athens' }));
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const hh = String(ath.getHours()).padStart(2,'0');
+    const mm = String(ath.getMinutes()).padStart(2,'0');
+    const ss = String(ath.getSeconds()).padStart(2,'0');
+    timeEl.textContent = days[ath.getDay()] + ', ' + ath.getDate() + ' ' + months[ath.getMonth()] + ' ' + ath.getFullYear() + ' ' + hh + ':' + mm + ':' + ss + ' EET';
+  }
 }
 updateClock();
 setInterval(updateClock, 1000);
@@ -1824,5 +1837,12 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
+
+
+
+
+
+
 
 

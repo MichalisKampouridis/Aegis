@@ -30,7 +30,7 @@
     <div style="width:400px; height:2px; background:#0d1526; border-radius:2px; margin-top:16px; border:1px solid #1e2d4a; animation:textFadeIn 0.8s ease-out 1s both;">
       <div id="splash-bar" style="height:2px; background:linear-gradient(to right, #b45309, #f59e0b, #fcd34d); border-radius:2px; width:0%; transition:width 0.4s ease; box-shadow:0 0 12px #f59e0b;"></div>
     </div>
-    <div style="font-family:Share Tech Mono,monospace; font-size:11px; color:#1e3a5f; letter-spacing:3px; margin-top:48px; animation:textFadeIn 0.8s ease-out 1.2s both;">v1.0.0 · MICHALIS DRAUS · 2026</div>
+    <div style="font-family:Share Tech Mono,monospace; font-size:11px; color:#1e3a5f; letter-spacing:3px; margin-top:48px; animation:textFadeIn 0.8s ease-out 1.2s both;">v1.0.0 · AEGIS PLATFORM · 2026</div>
   </div>
 </div>
 <div class="app-container">
@@ -90,7 +90,7 @@
   <main class="main-content">
     <div class="page-header">
       <h1 class="page-title" id="page-title">Security Dashboard</h1>
-      <div class="header-meta"><span id="live-time"></span></div>
+      <div class="header-meta" style="display:flex; align-items:center; gap:12px;"><span id="live-time"></span><button onclick="showUTC=!showUTC; updateClock();" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-mono); font-size:10px; padding:3px 8px; border-radius:2px; cursor:pointer; letter-spacing:1px;">UTC/EET</button></div>
     </div>
     <div class="content-area" id="content-area">
 
@@ -211,6 +211,8 @@
 <script src="js/ping.js"></script>
 </body>
 </html>
+
+
 
 
 
