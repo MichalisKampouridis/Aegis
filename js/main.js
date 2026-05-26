@@ -881,3 +881,186 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 
 
 
+
+// ============================================================
+// AI DAILY BRIEFING — FULL EDITION
+// ============================================================
+let briefingHistory = [];
+
+async function generateBriefing() {
+  const resultDiv = document.getElementById('briefing-result');
+  const btn = document.getElementById('briefing-btn');
+  const style = document.getElementById('briefing-style').value;
+  const focus = document.getElementById('briefing-focus').value.trim();
+
+  btn.textContent = 'ANALYZING...';
+  btn.style.opacity = '0.6';
+  btn.disabled = true;
+
+  resultDiv.innerHTML =
+    '<div style="text-align:center; padding:40px;">' +
+    '<div style="font-family:var(--font-title); font-size:14px; color:var(--amber); letter-spacing:4px; margin-bottom:16px; animation:blink 1s infinite;">AEGIS INTELLIGENCE ENGINE ACTIVE</div>' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">COLLECTING THREAT DATA...</div>' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">CORRELATING CVE DATABASE...</div>' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">ENGAGING AI ANALYST...</div>' +
+    '<div style="width:200px; height:4px; background:var(--bg-secondary); border-radius:2px; margin:16px auto;"><div style="height:4px; background:var(--amber); border-radius:2px; animation:loadingBar 2s ease-in-out infinite;"></div></div>' +
+    '</div>';
+
+  // Add loading bar animation to CSS
+  const style_el = document.createElement('style');
+  style_el.textContent = '@keyframes loadingBar { 0% { width: 0%; } 50% { width: 100%; } 100% { width: 0%; } }';
+  document.head.appendChild(style_el);
+
+  // Gather CVE data
+  let cveContext = '';
+  if (allCVEs && allCVEs.length > 0) {
+    const top10 = allCVEs.slice(0, 10);
+    cveContext = 'Current CVE Feed (' + top10.length + ' vulnerabilities):\n' +
+      top10.map(function(cve) {
+        return '- ' + cve.id + ' [' + cve.severity + ' ' + (cve.score ? cve.score.toFixed(1) : 'N/A') + '] ' + cve.desc.slice(0, 150);
+      }).join('\n');
+  } else {
+    cveContext = 'No CVE data currently loaded. Generate a general threat intelligence briefing based on current cybersecurity trends.';
+  }
+
+  const stylePrompts = {
+    analyst: 'Write as a senior SOC analyst giving a daily threat briefing to the security team. Use professional but clear language.',
+    executive: 'Write as a CISO giving an executive briefing to board members. Focus on business risk and impact. Keep it concise and non-technical.',
+    technical: 'Write as a senior threat intelligence engineer. Include technical details, attack vectors, CVE specifics, and mitigation techniques.',
+    incident: 'Write as an incident response lead. Focus on immediate threats, prioritized response actions, and what to watch for today.'
+  };
+
+  const focusInstruction = focus ? 'Pay special attention to: ' + focus + '.' : '';
+
+  const prompt = 'You are a cybersecurity intelligence analyst for Aegis Security Dashboard. ' +
+    stylePrompts[style] + ' ' + focusInstruction + '\n\n' +
+    'Based on the following threat data, generate a professional intelligence briefing:\n\n' +
+    cveContext + '\n\n' +
+    'Your briefing MUST include these sections:\n' +
+    '1. THREAT LEVEL: (assign one of: LOW / ELEVATED / HIGH / CRITICAL based on the data)\n' +
+    '2. EXECUTIVE SUMMARY: (2-3 sentences overview)\n' +
+    '3. KEY FINDINGS: (3-5 bullet points of most important threats)\n' +
+    '4. CRITICAL VULNERABILITIES: (highlight the most dangerous CVEs)\n' +
+    '5. RECOMMENDED ACTIONS: (3-5 specific actionable steps)\n' +
+    '6. ANALYST NOTE: (one final insight or warning)\n\n' +
+    'Keep the total briefing under 500 words. Write in a professional, authoritative tone.';
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    const briefingText = data.content[0].text;
+    const timestamp = new Date().toUTCString();
+
+    // Parse threat level
+    let threatLevel = 'ELEVATED';
+    let threatLevelColor = '#f59e0b';
+    if (briefingText.includes('THREAT LEVEL: CRITICAL') || briefingText.includes('THREAT LEVEL:CRITICAL')) {
+      threatLevel = 'CRITICAL'; threatLevelColor = '#ef4444';
+    } else if (briefingText.includes('THREAT LEVEL: HIGH') || briefingText.includes('THREAT LEVEL:HIGH')) {
+      threatLevel = 'HIGH'; threatLevelColor = '#f97316';
+    } else if (briefingText.includes('THREAT LEVEL: LOW') || briefingText.includes('THREAT LEVEL:LOW')) {
+      threatLevel = 'LOW'; threatLevelColor = '#84cc16';
+    } else if (briefingText.includes('THREAT LEVEL: ELEVATED') || briefingText.includes('THREAT LEVEL:ELEVATED')) {
+      threatLevel = 'ELEVATED'; threatLevelColor = '#f59e0b';
+    }
+
+    // Format briefing text
+    const formattedText = briefingText
+      .replace(/\*\*(.*?)\*\*/g, '<span style="color:var(--amber); font-weight:bold;">$1</span>')
+      .replace(/^(\d+\.\s+[A-Z\s]+:)/gm, '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-top:16px; margin-bottom:8px;">$1</div>')
+      .replace(/^[-•]\s+/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">▸ ')
+      .replace(/\n/g, '</div>\n');
+
+    const briefingHTML =
+      '<div id="briefing-report" style="background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:28px; position:relative;">' +
+      '<div style="position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(to right, transparent, ' + threatLevelColor + ', transparent);"></div>' +
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:12px;">' +
+      '<div>' +
+      '<div style="font-family:var(--font-title); font-size:18px; color:var(--amber); letter-spacing:3px; margin-bottom:6px;">AEGIS INTELLIGENCE BRIEFING</div>' +
+      '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">Generated: ' + timestamp + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">Style: ' + style.toUpperCase() + (focus ? ' | Focus: ' + focus : '') + '</div>' +
+      '</div>' +
+      '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">' +
+      '<div style="background:' + threatLevelColor + '; color:#020818; font-family:var(--font-title); font-size:13px; font-weight:900; padding:8px 20px; border-radius:3px; letter-spacing:2px;">⚠ ' + threatLevel + '</div>' +
+      '<div style="display:flex; gap:8px;">' +
+      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">⎘ COPY</button>' +
+      '<button onclick="exportBriefingPDF()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">⬇ PDF</button>' +
+      '</div></div></div>' +
+      '<div style="font-family:var(--font-mono); font-size:14px; color:var(--text-primary); line-height:1.8; border-top:1px solid var(--border); padding-top:20px;">' +
+      formattedText +
+      '</div></div>';
+
+    resultDiv.innerHTML = briefingHTML;
+
+    // Add to history
+    briefingHistory.unshift({ timestamp, threatLevel, threatLevelColor, style, focus, text: briefingText });
+    if (briefingHistory.length > 3) briefingHistory.pop();
+    renderBriefingHistory();
+
+  } catch (error) {
+    resultDiv.innerHTML =
+      '<div class="breach-card" style="border-left-color:#ef4444;">' +
+      '<div class="breach-name" style="color:#ef4444;">BRIEFING GENERATION FAILED</div>' +
+      '<div class="breach-detail" style="margin-top:8px;">Error: ' + error.message + '<br><br>The AI Briefing feature requires the Anthropic API. This will work fully when Aegis is deployed to GitHub Pages.</div>' +
+      '</div>';
+  }
+
+  btn.textContent = '⚡ GENERATE BRIEFING';
+  btn.style.opacity = '1';
+  btn.disabled = false;
+}
+
+function copyBriefing() {
+  const report = document.getElementById('briefing-report');
+  if (!report) return;
+  navigator.clipboard.writeText(report.innerText).then(function() {
+    const btn = event.target;
+    btn.textContent = '✓ COPIED';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
+    setTimeout(function() { btn.textContent = '⎘ COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+  });
+}
+
+function exportBriefingPDF() {
+  const report = document.getElementById('briefing-report');
+  if (!report) return;
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write('<html><head><title>Aegis Intelligence Briefing</title><style>body{background:#020818;color:#e2e8f0;font-family:Courier New,monospace;padding:40px;}h1{color:#f59e0b;font-size:20px;letter-spacing:4px;border-bottom:1px solid #f59e0b;padding-bottom:12px;margin-bottom:24px;}.footer{margin-top:40px;border-top:1px solid #1e2d4a;padding-top:12px;color:#64748b;font-size:11px;}</style></head><body><h1>AEGIS INTELLIGENCE BRIEFING</h1><div>' + report.innerText.replace(/\n/g, '<br>') + '</div><div class="footer">Generated by Aegis Security Intelligence Dashboard</div></body></html>');
+  printWindow.document.close();
+  setTimeout(function() { printWindow.print(); }, 500);
+}
+
+function renderBriefingHistory() {
+  const histSection = document.getElementById('briefing-history-section');
+  const histDiv = document.getElementById('briefing-history');
+  if (!histSection || !histDiv) return;
+  if (briefingHistory.length === 0) { histSection.style.display = 'none'; return; }
+  histSection.style.display = 'block';
+  histDiv.innerHTML = briefingHistory.map(function(b, i) {
+    return '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + b.threatLevelColor + '; border-radius:3px; padding:16px; margin-bottom:12px;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">' + b.timestamp + '</div>' +
+      '<div style="background:' + b.threatLevelColor + '; color:#020818; font-family:var(--font-mono); font-size:11px; font-weight:bold; padding:3px 10px; border-radius:2px;">' + b.threatLevel + '</div>' +
+      '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Style: ' + b.style.toUpperCase() + (b.focus ? ' | Focus: ' + b.focus : '') + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-primary); margin-top:8px; line-height:1.6;">' + b.text.slice(0, 200) + '...</div>' +
+      '</div>';
+  }).join('');
+}

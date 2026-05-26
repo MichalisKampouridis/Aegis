@@ -105,9 +105,27 @@
         <div class="card">
           <div class="card-header">AI DAILY BRIEFING</div>
           <div class="input-row">
-            <button class="aegis-btn" id="briefing-btn">GENERATE BRIEFING</button>
+            
           </div>
-          <div class="result-area" id="briefing-result"></div>
+          <div style="margin-bottom:20px;">
+<div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+<button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">⚡ GENERATE BRIEFING</button>
+<select id="briefing-style" class="aegis-input" style="max-width:220px;">
+<option value="analyst">Analyst Summary</option>
+<option value="executive">Executive Summary</option>
+<option value="technical">Technical Deep Dive</option>
+<option value="incident">Incident Response Focus</option>
+</select>
+</div>
+<div style="margin-bottom:16px;">
+<input type="text" id="briefing-focus" class="aegis-input" placeholder="Optional: focus on specific topic (e.g. Windows vulnerabilities, Apache, ransomware)...">
+</div>
+</div>
+<div class="result-area" id="briefing-result"><p class="placeholder-text">Click GENERATE BRIEFING to create your AI intelligence briefing.</p></div>
+<div id="briefing-history-section" style="margin-top:24px; display:none;">
+<div class="card-header" style="margin-bottom:16px;">BRIEFING HISTORY</div>
+<div id="briefing-history"></div>
+</div>
         </div>
       </div>
       <div class="page" id="page-news">
@@ -122,6 +140,9 @@
 <script src="js/main.js"></script>
 </body>
 </html>
+
+
+
 
 
 
