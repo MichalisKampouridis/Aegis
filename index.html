@@ -141,7 +141,7 @@
         <div class="card">
           <div class="card-header">CVE THREAT FEED</div>
           <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">? LOAD CVE FEED</button>
+            <button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">&#128737; LOAD CVE FEED</button>
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Source: US National Vulnerability Database (NVD)</div>
           </div>
           <div class="result-area" id="cve-result"><p class="placeholder-text">Click LOAD CVE FEED to pull the latest vulnerabilities.</p></div>
@@ -153,7 +153,7 @@
           <div class="card-header">AI DAILY BRIEFING</div>
           <div style="margin-bottom:20px;">
             <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-              <button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">? GENERATE BRIEFING</button>
+              <button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">&#9889; GENERATE BRIEFING</button>
               <select id="briefing-style" class="aegis-input" style="max-width:220px;">
                 <option value="analyst">Analyst Summary</option>
                 <option value="executive">Executive Summary</option>
@@ -177,8 +177,8 @@
         <div class="card">
           <div class="card-header">SECURITY NEWS HEADLINES</div>
           <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <button onclick="loadSecurityNews()" class="aegis-btn">? REFRESH HEADLINES</button>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Sources: The Hacker News · BleepingComputer · Dark Reading</div>
+            <button onclick="loadSecurityNews()" class="aegis-btn">&#128225; REFRESH HEADLINES</button>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Sources: The Hacker News &#9670; BleepingComputer &#9670; Dark Reading</div>
           </div>
           <div class="result-area" id="news-result"><p class="placeholder-text">Click REFRESH HEADLINES to load the latest cybersecurity news.</p></div>
         </div>
@@ -195,8 +195,8 @@
             <div class="card-header">PING TOOL</div>
             <div class="input-row">
               <input type="text" id="ping-input" class="aegis-input" placeholder="Enter IP, domain, or name (e.g. google, facebook, cloudflare)...">
-              <button class="aegis-btn" onclick="runPing()">? PING</button>
-              <button class="aegis-btn" id="ping-stop-btn" style="border-color:#ef4444; color:#ef4444; display:none;" onclick="stopPing()">¦ STOP</button>
+              <button class="aegis-btn" onclick="runPing()">&#9889; PING</button>
+              <button class="aegis-btn" id="ping-stop-btn" style="border-color:#ef4444; color:#ef4444; display:none;" onclick="stopPing()">&#9632; STOP</button>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;" id="ping-shortcuts"></div>
             <div id="ping-result"></div>
