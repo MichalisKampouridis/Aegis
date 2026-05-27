@@ -847,9 +847,9 @@ async function loadCVEFeed() {
   cveSearchTerm = '';
 
   try {
-    const response = await fetch('https://api.codetabs.com/v1/proxy?quest=https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json');
+    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
     const data = await response.json();
-
+    if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
     if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
       resultDiv.innerHTML = '<p class="placeholder-text">No CVE data available right now. Try again later.</p>';
       return;
