@@ -1495,10 +1495,10 @@ async function loadDashboard() {
 
     // STAT CARDS
     '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">' +
-    renderStatCard('CVEs LOADED', cveData.length, cveData.length > 0 ? '#f59e0b' : '#64748b', '??') +
-    renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '??') +
-    renderStatCard('CRITICAL CVEs', cveData.filter(function(c) { return c.severity === 'CRITICAL'; }).length, '#ef4444', '??') +
-    renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '??' : '?') +
+    renderStatCard('CVEs LOADED', cveData.length, cveData.length > 0 ? '#f59e0b' : '#64748b', '&#128737;') +
+    renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '&#128225;') +
+    renderStatCard('CRITICAL CVEs', cveData.filter(function(c) { return c.severity === 'CRITICAL'; }).length, '#ef4444', '&#128308;') +
+    renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '&#128274;' : '&#9888;') +
     '</div>' +
 
     // QUICK ACTIONS
@@ -1506,7 +1506,7 @@ async function loadDashboard() {
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">QUICK ACTIONS</div>' +
     '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
     ['breach', 'password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
-      const labels = { breach: '? Breach Checker', password: '?? Password Health', ip: '?? IP Investigator', cve: '?? CVE Feed', briefing: '?? AI Briefing', news: '?? Security News', network: '?? Network Monitor' };
+      const labels = { breach: '&#9888; Breach Checker', password: '&#128273; Password Health', ip: '&#127760; IP Investigator', cve: '&#128737; CVE Feed', briefing: '&#129302; AI Briefing', news: '&#128225; Security News', network: '&#128274; Network Monitor' };
       return '<button onclick="navigateTo(\'' + page + '\')" class="aegis-btn" style="font-size:12px; padding:10px 16px;">' + labels[page] + '</button>';
     }).join('') +
     '</div></div>' +
