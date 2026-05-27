@@ -960,7 +960,7 @@ async function generateBriefing() {
 
   try {
     const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
-      method: 'POST', body: JSON.stringify({
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
