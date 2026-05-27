@@ -625,7 +625,7 @@ async function investigateIP() {
       '<div>PROXY / VPN: <span style="color:' + (d.proxy && !knownSafeLabel ? '#ef4444' : '#10b981') + '">' + (d.proxy && !knownSafeLabel ? 'YES ?' : 'No') + '</span></div>' +
       '<div>DATACENTER: <span style="color:' + (d.hosting && !knownSafeLabel ? '#f59e0b' : '#10b981') + '">' + (d.hosting && !knownSafeLabel ? 'YES ?' : 'No') + '</span></div>' +
       '</div></div>' +
-      whoisHTML +
+
       '<div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">' +
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">GEOLOCATION MAP</div>' +
       '<iframe width="100%" height="320" frameborder="0" scrolling="no" style="border-radius:3px; border:1px solid var(--border); filter:grayscale(0.3) invert(0.9) hue-rotate(180deg);" src="https://www.openstreetmap.org/export/embed.html?bbox=' + (d.lon-2) + ',' + (d.lat-2) + ',' + (d.lon+2) + ',' + (d.lat+2) + '&layer=mapnik&marker=' + d.lat + ',' + d.lon + '"></iframe>' +
