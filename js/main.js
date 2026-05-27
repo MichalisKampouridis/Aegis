@@ -562,7 +562,8 @@ async function investigateIP() {
     let threatScore = 0;
     let threatReasons = [];
     const knownSafeLabel = isKnownSafe(d.query);
-    const isMalicious = KNOWN_MALICIOUS.some(function(range) { return d.query.startsWith(range); });
+    console.log('d.query is:', d.query, 'd object:', JSON.stringify(d).slice(0,300));
+    const isMalicious = KNOWN_MALICIOUS.some(function(range) { return d.query && d.query.startsWith(range); });
     if (isMalicious) { threatScore += 80; threatReasons.push('Known malicious IP range'); }
     if (d.proxy && !knownSafeLabel) { threatScore += 40; threatReasons.push('Proxy / VPN detected'); }
     if (d.hosting && !knownSafeLabel) { threatScore += 20; threatReasons.push('Hosted in datacenter'); }
@@ -1738,6 +1739,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
 
 
 
