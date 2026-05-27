@@ -1155,7 +1155,7 @@ function renderNewsList() {
       '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); white-space:nowrap;">' + timeAgo(item.pubDate) + '</div>' +
       '</div>' +
       '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">' +
-      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber);">? ' + item.source + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber);">&#9658; ' + item.source + '</div>' +
       categoryBadges +
       '</div>' +
       (item.description ? '<div style="font-family:var(--font-ui); font-size:14px; color:#94a3b8; margin-top:10px; line-height:1.8;">' + item.description.slice(0, 150) + (item.description.length > 150 ? '...' : '') + '</div>' : '') +
@@ -1539,7 +1539,7 @@ async function loadDashboard() {
       return '<div style="padding:12px 0; border-bottom:1px solid var(--border); border-left:2px solid ' + borderColor + '; padding-left:12px;">' +
         '<div style="font-family:var(--font-ui); font-size:14px; color:var(--text-primary); font-weight:600; margin-bottom:4px; line-height:1.4;">' + item.title.slice(0, 80) + (item.title.length > 80 ? '...' : '') + '</div>' +
         '<div style="display:flex; justify-content:space-between;">' +
-        '<span style="font-family:var(--font-mono); font-size:11px; color:var(--amber);">? ' + item.source + '</span>' +
+        '<span style="font-family:var(--font-mono); font-size:11px; color:var(--amber);">&#9658; ' + item.source + '</span>' +
         '<span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">' + timeAgo(item.pubDate) + '</span>' +
         '</div></div>';
     }).join('') : '<p class="placeholder-text">No news loaded.</p>') +
