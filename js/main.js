@@ -1,4 +1,4 @@
-﻿let allCVEs = [];
+let allCVEs = [];
 
 // SPLASH SCREEN
 function runSplash() {
@@ -36,8 +36,8 @@ window.addEventListener('load', function() {
 });
 
 // ============================================================
-// AEGIS — PERSONAL SECURITY INTELLIGENCE DASHBOARD
-// main.js — Complete Feature Set
+// AEGIS � PERSONAL SECURITY INTELLIGENCE DASHBOARD
+// main.js � Complete Feature Set
 // ============================================================
 
 // PAGE NAVIGATION
@@ -106,7 +106,7 @@ function togglePassword() {
 }
 
 // ============================================================
-// PASSWORD HEALTH CHECK — ULTIMATE EDITION
+// PASSWORD HEALTH CHECK � ULTIMATE EDITION
 // ============================================================
 function calculateEntropy(password) {
   let charset = 0;
@@ -176,7 +176,7 @@ function analyzePassword(password) {
   if (!checks.noRepeat) suggestions.push('Avoid repeating characters (e.g. aaa)');
   if (!checks.noSequential) suggestions.push('Avoid sequential patterns (e.g. abc, 123)');
   if (!checks.noKeyboardWalk) suggestions.push('Avoid keyboard patterns (e.g. qwerty, asdf)');
-  if (!checks.noCommon) suggestions.push('This is a commonly used password — change it immediately');
+  if (!checks.noCommon) suggestions.push('This is a commonly used password � change it immediately');
 
   return { score, checks, suggestions };
 }
@@ -226,9 +226,9 @@ async function runBreachCheck(password) {
     const breachDiv2 = document.getElementById('breach-check-result');
     if (!breachDiv2) return;
     if (count === 0) {
-      breachDiv2.innerHTML = '<div class="safe-banner">✅ NOT FOUND IN ANY KNOWN DATA BREACH<br><span style="font-size:12px; opacity:0.7;">Checked via HaveIBeenPwned k-anonymity API. Your password was never transmitted.</span></div>';
+      breachDiv2.innerHTML = '<div class="safe-banner">? NOT FOUND IN ANY KNOWN DATA BREACH<br><span style="font-size:12px; opacity:0.7;">Checked via HaveIBeenPwned k-anonymity API. Your password was never transmitted.</span></div>';
     } else {
-      breachDiv2.innerHTML = '<div class="danger-banner">⚠ FOUND IN ' + count.toLocaleString() + ' KNOWN DATA BREACHES<br><span style="font-size:12px; opacity:0.7;">Change this password immediately on any account using it.</span></div>';
+      breachDiv2.innerHTML = '<div class="danger-banner">? FOUND IN ' + count.toLocaleString() + ' KNOWN DATA BREACHES<br><span style="font-size:12px; opacity:0.7;">Change this password immediately on any account using it.</span></div>';
     }
   } catch (e) {
     const breachDiv3 = document.getElementById('breach-check-result');
@@ -288,13 +288,13 @@ function renderPasswordAnalysis(password) {
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SECURITY CHECKS</div>' +
     '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">' +
     [['8+ characters', checks.length8], ['12+ characters', checks.length12], ['16+ characters', checks.length16], ['Uppercase letters', checks.hasUpper], ['Lowercase letters', checks.hasLower], ['Numbers', checks.hasNumber], ['Special symbols', checks.hasSymbol], ['No repeated chars', checks.noRepeat], ['No sequential patterns', checks.noSequential], ['No keyboard walks', checks.noKeyboardWalk], ['Not a common password', checks.noCommon]].map(function(item) {
-      return '<div style="font-family:var(--font-mono); font-size:13px; color:' + (item[1] ? '#10b981' : '#ef4444') + ';">' + (item[1] ? '✓' : '✗') + ' ' + item[0] + '</div>';
+      return '<div style="font-family:var(--font-mono); font-size:13px; color:' + (item[1] ? '#10b981' : '#ef4444') + ';">' + (item[1] ? '?' : '?') + ' ' + item[0] + '</div>';
     }).join('') +
     '</div></div>' +
     (suggestions.length > 0 ?
     '<div style="margin-bottom:18px;">' +
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">RECOMMENDATIONS</div>' +
-    suggestions.map(function(s) { return '<div style="font-family:var(--font-mono); font-size:13px; color:#f59e0b; margin-bottom:4px;">▸ ' + s + '</div>'; }).join('') +
+    suggestions.map(function(s) { return '<div style="font-family:var(--font-mono); font-size:13px; color:#f59e0b; margin-bottom:4px;">? ' + s + '</div>'; }).join('') +
     '</div>' : '') +
     '<div id="breach-check-result"><p class="loading" style="font-size:13px;">Checking breach database...</p></div>' +
     '</div>';
@@ -320,11 +320,11 @@ document.getElementById('generate-pw-btn').addEventListener('click', function() 
   renderPasswordAnalysis(pwd);
   navigator.clipboard.writeText(pwd).then(function() {
     const btn = document.getElementById('generate-pw-btn');
-    btn.textContent = '✓ COPIED';
+    btn.textContent = '? COPIED';
     btn.style.color = '#10b981';
     btn.style.borderColor = '#10b981';
     setTimeout(function() {
-      btn.textContent = '⚡ GENERATE';
+      btn.textContent = '? GENERATE';
       btn.style.color = '#64748b';
       btn.style.borderColor = '#1e2d4a';
     }, 2000);
@@ -332,7 +332,7 @@ document.getElementById('generate-pw-btn').addEventListener('click', function() 
 });
 
 // ============================================================
-// IP / DOMAIN INVESTIGATOR — ULTIMATE EDITION
+// IP / DOMAIN INVESTIGATOR � ULTIMATE EDITION
 // ============================================================
 const KNOWN_SAFE = {
   '8.8.8.8': 'Google Public DNS',
@@ -472,7 +472,7 @@ function renderIPHistory() {
     return;
   }
   histDiv.innerHTML = ipSearchHistory.map(function(h) {
-    return '<div onclick="loadFromHistory(\'' + h.query + '\')" style="cursor:pointer; padding:10px 14px; margin-bottom:6px; background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + h.color + '; border-radius:2px; font-family:var(--font-mono); font-size:12px; color:' + h.color + ';" onmouseover="this.style.background=\'var(--amber-glow)\'" onmouseout="this.style.background=\'var(--bg-secondary)\'">' + h.query + ' <span style="color:var(--text-dim); font-size:11px;">— ' + h.threat + '</span></div>';
+    return '<div onclick="loadFromHistory(\'' + h.query + '\')" style="cursor:pointer; padding:10px 14px; margin-bottom:6px; background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + h.color + '; border-radius:2px; font-family:var(--font-mono); font-size:12px; color:' + h.color + ';" onmouseover="this.style.background=\'var(--amber-glow)\'" onmouseout="this.style.background=\'var(--bg-secondary)\'">' + h.query + ' <span style="color:var(--text-dim); font-size:11px;">� ' + h.threat + '</span></div>';
   }).join('');
 }
 
@@ -487,10 +487,10 @@ function copyIPReport() {
   navigator.clipboard.writeText(reportEl.innerText).then(function() {
     const btn = document.getElementById('copy-ip-btn');
     if (btn) {
-      btn.textContent = '✓ COPIED';
+      btn.textContent = '? COPIED';
       btn.style.color = '#10b981';
       btn.style.borderColor = '#10b981';
-      setTimeout(function() { btn.textContent = '⎘ COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+      setTimeout(function() { btn.textContent = '? COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
     }
   });
 }
@@ -500,7 +500,7 @@ function exportIPPDF() {
   if (!reportEl) return;
   const target = document.getElementById('ip-input').value.trim();
   const printWindow = window.open('', '_blank');
-  printWindow.document.write('<html><head><title>Aegis Threat Report — ' + target + '</title><style>body{background:#020818;color:#e2e8f0;font-family:Courier New,monospace;padding:40px;}h1{color:#f59e0b;font-size:20px;letter-spacing:4px;border-bottom:1px solid #f59e0b;padding-bottom:12px;margin-bottom:24px;}.footer{margin-top:40px;border-top:1px solid #1e2d4a;padding-top:12px;color:#64748b;font-size:11px;}</style></head><body><h1>AEGIS THREAT INTELLIGENCE REPORT</h1><p style="color:#64748b;font-size:12px;margin-bottom:24px;">Generated: ' + new Date().toUTCString() + ' | Target: ' + target + '</p><div>' + reportEl.innerText.replace(/\n/g, '<br>') + '</div><div class="footer">Generated by Aegis Security Intelligence Dashboard | Powered by ip-api.com & Aegis Intelligence Engine</div></body></html>');
+  printWindow.document.write('<html><head><title>Aegis Threat Report � ' + target + '</title><style>body{background:#020818;color:#e2e8f0;font-family:Courier New,monospace;padding:40px;}h1{color:#f59e0b;font-size:20px;letter-spacing:4px;border-bottom:1px solid #f59e0b;padding-bottom:12px;margin-bottom:24px;}.footer{margin-top:40px;border-top:1px solid #1e2d4a;padding-top:12px;color:#64748b;font-size:11px;}</style></head><body><h1>AEGIS THREAT INTELLIGENCE REPORT</h1><p style="color:#64748b;font-size:12px;margin-bottom:24px;">Generated: ' + new Date().toUTCString() + ' | Target: ' + target + '</p><div>' + reportEl.innerText.replace(/\n/g, '<br>') + '</div><div class="footer">Generated by Aegis Security Intelligence Dashboard | Powered by ip-api.com & Aegis Intelligence Engine</div></body></html>');
   printWindow.document.close();
   setTimeout(function() { printWindow.print(); }, 500);
 }
@@ -518,13 +518,13 @@ async function investigateIP() {
   if (privateRange) {
     resultDiv.innerHTML =
       '<div class="breach-card" style="border-left-color:#a78bfa; background:rgba(167,139,250,0.08)">' +
-      '<div class="breach-name" style="color:#a78bfa; font-size:16px;">🔒 PRIVATE / INTERNAL IP</div>' +
+      '<div class="breach-name" style="color:#a78bfa; font-size:16px;">?? PRIVATE / INTERNAL IP</div>' +
       '<div class="breach-detail" style="margin-top:14px;">' +
       '<p style="color:var(--text-primary); margin-bottom:14px; font-size:14px;">This is a private network address. It exists only within a local network and cannot be traced on the public internet.</p>' +
       '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
       '<div>RANGE TYPE: <span style="color:#a78bfa">' + privateRange + '</span></div>' +
       '<div>PUBLICLY ROUTABLE: <span style="color:#ef4444">No</span></div>' +
-      '<div>THREAT LEVEL: <span style="color:#10b981">None — Internal Only</span></div>' +
+      '<div>THREAT LEVEL: <span style="color:#10b981">None � Internal Only</span></div>' +
       '<div>VISIBLE ON INTERNET: <span style="color:#ef4444">No</span></div>' +
       '</div></div></div>';
     return;
@@ -603,14 +603,14 @@ async function investigateIP() {
     resultDiv.innerHTML =
       '<div id="ip-report-text" class="breach-card" style="border-left-color:' + threatColor + '; background:' + threatBg + '">' +
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; gap:8px;">' +
-      '<div class="breach-name" style="color:' + threatColor + '; font-size:16px;">' + threat + ' — ' + d.query + '</div>' +
+      '<div class="breach-name" style="color:' + threatColor + '; font-size:16px;">' + threat + ' � ' + d.query + '</div>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:11px; padding:8px 16px;">⎘ COPY</button>' +
-      '<button onclick="exportIPPDF()" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">⬇ PDF</button>' +
+      '<button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:11px; padding:8px 16px;">? COPY</button>' +
+      '<button onclick="exportIPPDF()" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">? PDF</button>' +
       '</div></div>' +
-      (knownSafeLabel ? '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; margin-bottom:14px;">✓ Verified: ' + knownSafeLabel + '</div>' : '') +
+      (knownSafeLabel ? '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; margin-bottom:14px;">? Verified: ' + knownSafeLabel + '</div>' : '') +
       (!knownSafeLabel ? '<div style="margin:14px 0;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT SCORE</div><div style="background:#0a0f1e; border-radius:2px; height:8px; width:100%;"><div style="background:' + threatColor + '; height:8px; width:' + barWidth + '%; border-radius:2px; box-shadow:0 0 8px ' + threatColor + ';"></div></div><div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-top:6px;">' + threatScore + '/100</div></div>' : '') +
-      (threatReasons.length > 0 ? '<div style="margin-bottom:14px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT INDICATORS</div>' + threatReasons.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-bottom:4px;">▸ ' + r + '</div>'; }).join('') + '</div>' : '') +
+      (threatReasons.length > 0 ? '<div style="margin-bottom:14px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT INDICATORS</div>' + threatReasons.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-bottom:4px;">? ' + r + '</div>'; }).join('') + '</div>' : '') +
       '<div class="breach-detail" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">' +
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">NETWORK INTELLIGENCE</div>' +
       '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
@@ -622,15 +622,15 @@ async function investigateIP() {
       '<div>ORGANIZATION: <span>' + d.org + '</span></div>' +
       '<div>AS NUMBER: <span>' + d.as + '</span></div>' +
       '<div>COORDINATES: <span>' + d.lat + ', ' + d.lon + '</span></div>' +
-      '<div>PROXY / VPN: <span style="color:' + (d.proxy && !knownSafeLabel ? '#ef4444' : '#10b981') + '">' + (d.proxy && !knownSafeLabel ? 'YES ⚠' : 'No') + '</span></div>' +
-      '<div>DATACENTER: <span style="color:' + (d.hosting && !knownSafeLabel ? '#f59e0b' : '#10b981') + '">' + (d.hosting && !knownSafeLabel ? 'YES ⚡' : 'No') + '</span></div>' +
+      '<div>PROXY / VPN: <span style="color:' + (d.proxy && !knownSafeLabel ? '#ef4444' : '#10b981') + '">' + (d.proxy && !knownSafeLabel ? 'YES ?' : 'No') + '</span></div>' +
+      '<div>DATACENTER: <span style="color:' + (d.hosting && !knownSafeLabel ? '#f59e0b' : '#10b981') + '">' + (d.hosting && !knownSafeLabel ? 'YES ?' : 'No') + '</span></div>' +
       '</div></div>' +
       whoisHTML +
       '<div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">' +
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">GEOLOCATION MAP</div>' +
       '<iframe width="100%" height="320" frameborder="0" scrolling="no" style="border-radius:3px; border:1px solid var(--border); filter:grayscale(0.3) invert(0.9) hue-rotate(180deg);" src="https://www.openstreetmap.org/export/embed.html?bbox=' + (d.lon-2) + ',' + (d.lat-2) + ',' + (d.lon+2) + ',' + (d.lat+2) + '&layer=mapnik&marker=' + d.lat + ',' + d.lon + '"></iframe>' +
       '</div></div>' +
-      '<div class="result-label" style="margin-top:10px;">Data sourced from ip-api.com · Threat scoring by Aegis Intelligence Engine · ' + new Date().toUTCString() + '</div>';
+      '<div class="result-label" style="margin-top:10px;">Data sourced from ip-api.com � Threat scoring by Aegis Intelligence Engine � ' + new Date().toUTCString() + '</div>';
 
   } catch (error) {
     resultDiv.innerHTML = '<p class="placeholder-text">Error: ' + error.message + '</p>';
@@ -650,11 +650,11 @@ document.getElementById('my-ip-btn').addEventListener('click', async function() 
     const response = await fetch('https://api64.ipify.org?format=json');
     const data = await response.json();
     document.getElementById('ip-input').value = data.ip;
-    btn.textContent = '⌖ MY IP';
+    btn.textContent = '? MY IP';
     btn.style.opacity = '1';
     investigateIP();
   } catch (e) {
-    btn.textContent = '⌖ MY IP';
+    btn.textContent = '? MY IP';
     btn.style.opacity = '1';
     document.getElementById('ip-result').innerHTML = '<p class="placeholder-text">Could not detect your IP. Try again.</p>';
   }
@@ -745,9 +745,9 @@ function renderCVECard(cve, expanded) {
     '<div style="font-family:var(--font-title); font-size:18px; color:' + color + ';">' + scoreDisplay + '</div>' +
     '</div>' +
     '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
-    '<button onclick="copyCVEId(\'' + cve.id + '\')" id="copy-cve-' + cve.id + '" class="aegis-btn" style="font-size:11px; padding:6px 12px;">⎘ COPY ID</button>' +
-    '<a href="https://nvd.nist.gov/vuln/detail/' + cve.id + '" target="_blank" class="aegis-btn" style="font-size:11px; padding:6px 12px; text-decoration:none; border-color:#a78bfa; color:#a78bfa;">↗ NVD</a>' +
-    '<button onclick="toggleCVEExpand(\'' + cve.id + '\')" class="aegis-btn" style="font-size:11px; padding:6px 12px; border-color:#1e2d4a; color:#64748b;">' + (expanded ? '▲ LESS' : '▼ MORE') + '</button>' +
+    '<button onclick="copyCVEId(\'' + cve.id + '\')" id="copy-cve-' + cve.id + '" class="aegis-btn" style="font-size:11px; padding:6px 12px;">? COPY ID</button>' +
+    '<a href="https://nvd.nist.gov/vuln/detail/' + cve.id + '" target="_blank" class="aegis-btn" style="font-size:11px; padding:6px 12px; text-decoration:none; border-color:#a78bfa; color:#a78bfa;">? NVD</a>' +
+    '<button onclick="toggleCVEExpand(\'' + cve.id + '\')" class="aegis-btn" style="font-size:11px; padding:6px 12px; border-color:#1e2d4a; color:#64748b;">' + (expanded ? '^ LESS' : '� MORE') + '</button>' +
     '</div></div>' +
     (cve.hasKeyword && cve.matchedKeywords.length > 0 ? '<div style="margin-bottom:10px;">' + keywordBadges + '</div>' : '') +
     '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:1.7; margin-bottom:10px;">' + (expanded ? cve.desc : shortDesc) + '</div>' +
@@ -760,10 +760,10 @@ function copyCVEId(id) {
   navigator.clipboard.writeText(id).then(function() {
     const btn = document.getElementById('copy-cve-' + id);
     if (btn) {
-      btn.textContent = '✓ COPIED';
+      btn.textContent = '? COPIED';
       btn.style.color = '#10b981';
       btn.style.borderColor = '#10b981';
-      setTimeout(function() { btn.textContent = '⎘ COPY ID'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+      setTimeout(function() { btn.textContent = '? COPY ID'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
     }
   });
 }
@@ -795,7 +795,7 @@ function renderCVEList() {
   const total = allCVEs.length;
   const statsBar =
     '<div style="margin-bottom:20px;">' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SEVERITY BREAKDOWN — ' + total + ' VULNERABILITIES</div>' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SEVERITY BREAKDOWN � ' + total + ' VULNERABILITIES</div>' +
     '<div style="display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden; margin-bottom:12px;">' +
     (counts.CRITICAL > 0 ? '<div style="background:#ef4444; flex:' + counts.CRITICAL + '; transition:flex 0.5s;" title="CRITICAL: ' + counts.CRITICAL + '"></div>' : '') +
     (counts.HIGH > 0 ? '<div style="background:#f97316; flex:' + counts.HIGH + '; transition:flex 0.5s;" title="HIGH: ' + counts.HIGH + '"></div>' : '') +
@@ -849,13 +849,13 @@ async function loadCVEFeed() {
   try {
     let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
     const data = await response.json();
-    if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
-    if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
+
+
       resultDiv.innerHTML = '<p class="placeholder-text">No CVE data available right now. Try again later.</p>';
       return;
     }
 
-    allCVEs = data.vulnerabilities.slice(0, 20).reverse().map(extractCVEDataCISA);
+    allCVEs = data.vulnerabilities.map(extractCVEData);
     renderCVEList();
 
   } catch (error) {
@@ -900,7 +900,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 
 
 // ============================================================
-// AI DAILY BRIEFING — FULL EDITION
+// AI DAILY BRIEFING � FULL EDITION
 // ============================================================
 let briefingHistory = [];
 
@@ -1001,7 +1001,7 @@ async function generateBriefing() {
     const formattedText = briefingText
       .replace(/\*\*(.*?)\*\*/g, '<span style="color:var(--amber); font-weight:bold;">$1</span>')
       .replace(/^(\d+\.\s+[A-Z\s]+:)/gm, '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-top:16px; margin-bottom:8px;">$1</div>')
-      .replace(/^[-•]\s+/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">▸ ')
+      .replace(/^[-�]\s+/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">? ')
       .replace(/\n/g, '</div>\n');
 
     const briefingHTML =
@@ -1014,10 +1014,10 @@ async function generateBriefing() {
       '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">Style: ' + style.toUpperCase() + (focus ? ' | Focus: ' + focus : '') + '</div>' +
       '</div>' +
       '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">' +
-      '<div style="background:' + threatLevelColor + '; color:#020818; font-family:var(--font-title); font-size:13px; font-weight:900; padding:8px 20px; border-radius:3px; letter-spacing:2px;">⚠ ' + threatLevel + '</div>' +
+      '<div style="background:' + threatLevelColor + '; color:#020818; font-family:var(--font-title); font-size:13px; font-weight:900; padding:8px 20px; border-radius:3px; letter-spacing:2px;">? ' + threatLevel + '</div>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">⎘ COPY</button>' +
-      '<button onclick="exportBriefingPDF()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">⬇ PDF</button>' +
+      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">? COPY</button>' +
+      '<button onclick="exportBriefingPDF()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">? PDF</button>' +
       '</div></div></div>' +
       '<div style="font-family:var(--font-mono); font-size:14px; color:var(--text-primary); line-height:1.8; border-top:1px solid var(--border); padding-top:20px;">' +
       formattedText +
@@ -1038,7 +1038,7 @@ async function generateBriefing() {
       '</div>';
   }
 
-  btn.textContent = '⚡ GENERATE BRIEFING';
+  btn.textContent = '? GENERATE BRIEFING';
   btn.style.opacity = '1';
   btn.disabled = false;
 }
@@ -1048,10 +1048,10 @@ function copyBriefing() {
   if (!report) return;
   navigator.clipboard.writeText(report.innerText).then(function() {
     const btn = event.target;
-    btn.textContent = '✓ COPIED';
+    btn.textContent = '? COPIED';
     btn.style.color = '#10b981';
     btn.style.borderColor = '#10b981';
-    setTimeout(function() { btn.textContent = '⎘ COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+    setTimeout(function() { btn.textContent = '? COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
   });
 }
 
@@ -1083,7 +1083,7 @@ function renderBriefingHistory() {
 }
 
 // ============================================================
-// SECURITY NEWS HEADLINES — FULL EDITION
+// SECURITY NEWS HEADLINES � FULL EDITION
 // ============================================================
 const NEWS_CATEGORIES = {
   'ransomware': { label: 'RANSOMWARE', color: '#ef4444' },
@@ -1163,7 +1163,7 @@ function renderNewsList() {
       '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); white-space:nowrap;">' + timeAgo(item.pubDate) + '</div>' +
       '</div>' +
       '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">' +
-      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber);">▸ ' + item.source + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber);">? ' + item.source + '</div>' +
       categoryBadges +
       '</div>' +
       (item.description ? '<div style="font-family:var(--font-ui); font-size:14px; color:#94a3b8; margin-top:10px; line-height:1.8;">' + item.description.slice(0, 150) + (item.description.length > 150 ? '...' : '') + '</div>' : '') +
@@ -1393,7 +1393,7 @@ function getLatencyLabel(ms) {
 function showIPChangeAlert(oldIP, newIP) {
   const alert = document.createElement('div');
   alert.style.cssText = 'position:fixed; top:20px; right:20px; background:#0d1526; border:1px solid #ef4444; border-radius:4px; padding:16px 20px; font-family:var(--font-mono); font-size:13px; color:#ef4444; z-index:9999; box-shadow:0 0 20px rgba(239,68,68,0.3);';
-  alert.innerHTML = '⚠ IP ADDRESS CHANGED<br><span style="color:var(--text-dim); font-size:11px;">Previous: ' + oldIP + '<br>Current: ' + newIP + '</span>';
+  alert.innerHTML = '? IP ADDRESS CHANGED<br><span style="color:var(--text-dim); font-size:11px;">Previous: ' + oldIP + '<br>Current: ' + newIP + '</span>';
   document.body.appendChild(alert);
   setTimeout(function() { alert.remove(); }, 8000);
 }
@@ -1404,18 +1404,18 @@ function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
   // VPN STATUS
   const vpnActive = ipData.success && ipData.isVPN;
   const vpnColor = vpnActive ? '#10b981' : '#ef4444';
-  const vpnLabel = vpnActive ? '✅ VPN ACTIVE' : '⚠ NO VPN DETECTED';
+  const vpnLabel = vpnActive ? '? VPN ACTIVE' : '? NO VPN DETECTED';
   const flag = ipData.success ? countryCodeToFlag(ipData.countryCode) : '';
 
   // WEBRTC
   const webrtcLeak = webrtcData.success && webrtcData.publicIPs.length > 0;
   const webrtcColor = webrtcLeak ? '#ef4444' : '#10b981';
-  const webrtcLabel = webrtcLeak ? '⚠ LEAK DETECTED' : '✅ NO LEAK';
+  const webrtcLabel = webrtcLeak ? '? LEAK DETECTED' : '? NO LEAK';
 
   // DNS
   const dnsLeak = dnsData.success && dnsData.isLeaking;
   const dnsColor = dnsLeak ? '#ef4444' : '#10b981';
-  const dnsLabel = dnsLeak ? '⚠ DNS LEAK' : '✅ DNS SECURE';
+  const dnsLabel = dnsLeak ? '? DNS LEAK' : '? DNS SECURE';
 
   resultDiv.innerHTML =
     // VPN STATUS CARD
@@ -1456,7 +1456,7 @@ function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
     }).join('') +
     '</div></div>' +
 
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-top:8px;">LAST SCAN: ' + new Date().toUTCString() + ' · AUTO-REFRESH: EVERY 5 MINUTES</div>';
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-top:8px;">LAST SCAN: ' + new Date().toUTCString() + ' � AUTO-REFRESH: EVERY 5 MINUTES</div>';
 }
 
 // Auto-load network monitor when page is visited
@@ -1473,7 +1473,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 
 
 // ============================================================
-// DASHBOARD — HOME PAGE
+// DASHBOARD � HOME PAGE
 // ============================================================
 async function loadDashboard() {
   const dashDiv = document.getElementById('dashboard-content');
@@ -1496,17 +1496,17 @@ async function loadDashboard() {
     '<div style="background:' + threatColor + '18; border:1px solid ' + threatColor + '; border-radius:4px; padding:20px 28px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">' +
     '<div>' +
     '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:3px; margin-bottom:6px;">CURRENT THREAT LEVEL</div>' +
-    '<div style="font-family:var(--font-title); font-size:28px; color:' + threatColor + '; letter-spacing:4px;">⚠ ' + threatLevel + '</div>' +
+    '<div style="font-family:var(--font-title); font-size:28px; color:' + threatColor + '; letter-spacing:4px;">? ' + threatLevel + '</div>' +
     '</div>' +
     '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); text-align:right;">LAST UPDATED<br><span style="color:var(--text-primary);">' + new Date().toUTCString() + '</span></div>' +
     '</div>' +
 
     // STAT CARDS
     '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">' +
-    renderStatCard('CVEs LOADED', cveData.length, cveData.length > 0 ? '#f59e0b' : '#64748b', '🛡') +
-    renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '📡') +
-    renderStatCard('CRITICAL CVEs', cveData.filter(function(c) { return c.severity === 'CRITICAL'; }).length, '#ef4444', '🔴') +
-    renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '🔒' : '⚠') +
+    renderStatCard('CVEs LOADED', cveData.length, cveData.length > 0 ? '#f59e0b' : '#64748b', '??') +
+    renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '??') +
+    renderStatCard('CRITICAL CVEs', cveData.filter(function(c) { return c.severity === 'CRITICAL'; }).length, '#ef4444', '??') +
+    renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '??' : '?') +
     '</div>' +
 
     // QUICK ACTIONS
@@ -1514,7 +1514,7 @@ async function loadDashboard() {
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">QUICK ACTIONS</div>' +
     '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
     ['breach', 'password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
-      const labels = { breach: '⚠ Breach Checker', password: '🔑 Password Health', ip: '🌐 IP Investigator', cve: '🛡 CVE Feed', briefing: '🤖 AI Briefing', news: '📡 Security News', network: '🔒 Network Monitor' };
+      const labels = { breach: '? Breach Checker', password: '?? Password Health', ip: '?? IP Investigator', cve: '?? CVE Feed', briefing: '?? AI Briefing', news: '?? Security News', network: '?? Network Monitor' };
       return '<button onclick="navigateTo(\'' + page + '\')" class="aegis-btn" style="font-size:12px; padding:10px 16px;">' + labels[page] + '</button>';
     }).join('') +
     '</div></div>' +
@@ -1535,7 +1535,7 @@ async function loadDashboard() {
         '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); line-height:1.5;">' + cve.desc.slice(0, 100) + '...</div>' +
         '</div>';
     }).join('') : '<p class="placeholder-text">No CVE data loaded.</p>') +
-    '<button onclick="navigateTo(\'cve\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL CVEs →</button>' +
+    '<button onclick="navigateTo(\'cve\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL CVEs ></button>' +
     '</div>' +
 
     // LATEST NEWS
@@ -1547,11 +1547,11 @@ async function loadDashboard() {
       return '<div style="padding:12px 0; border-bottom:1px solid var(--border); border-left:2px solid ' + borderColor + '; padding-left:12px;">' +
         '<div style="font-family:var(--font-ui); font-size:14px; color:var(--text-primary); font-weight:600; margin-bottom:4px; line-height:1.4;">' + item.title.slice(0, 80) + (item.title.length > 80 ? '...' : '') + '</div>' +
         '<div style="display:flex; justify-content:space-between;">' +
-        '<span style="font-family:var(--font-mono); font-size:11px; color:var(--amber);">▸ ' + item.source + '</span>' +
+        '<span style="font-family:var(--font-mono); font-size:11px; color:var(--amber);">? ' + item.source + '</span>' +
         '<span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">' + timeAgo(item.pubDate) + '</span>' +
         '</div></div>';
     }).join('') : '<p class="placeholder-text">No news loaded.</p>') +
-    '<button onclick="navigateTo(\'news\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL NEWS →</button>' +
+    '<button onclick="navigateTo(\'news\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL NEWS ></button>' +
     '</div>' +
     '</div>';
 }
@@ -1972,5 +1972,6 @@ const GREEK_CIDRS = {
   '109.242.0.0/15': 'OTE Group Greece'
 };
 Object.assign(KNOWN_SAFE, GREEK_CIDRS);
+
 
 
