@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aegis — Personal Security Intelligence Dashboard</title>
-<link rel="stylesheet" href="css/style.css">
+<title>Aegis � Personal Security Intelligence Dashboard</title>
+<link rel="stylesheet" href="css/style.css"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>??</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -30,7 +30,7 @@
     <div style="width:400px; height:2px; background:#0d1526; border-radius:2px; margin-top:16px; border:1px solid #1e2d4a; animation:textFadeIn 0.8s ease-out 1s both;">
       <div id="splash-bar" style="height:2px; background:linear-gradient(to right, #b45309, #f59e0b, #fcd34d); border-radius:2px; width:0%; transition:width 0.4s ease; box-shadow:0 0 12px #f59e0b;"></div>
     </div>
-    <div style="font-family:Share Tech Mono,monospace; font-size:11px; color:#1e3a5f; letter-spacing:3px; margin-top:48px; animation:textFadeIn 0.8s ease-out 1.2s both;">v1.0.0 · AEGIS PLATFORM · 2026</div>
+    <div style="font-family:Share Tech Mono,monospace; font-size:11px; color:#1e3a5f; letter-spacing:3px; margin-top:48px; animation:textFadeIn 0.8s ease-out 1.2s both;">v1.0.0 � AEGIS PLATFORM � 2026</div>
   </div>
 </div>
 <div class="app-container">
@@ -50,35 +50,35 @@
     </div>
     <nav class="sidebar-nav">
       <a href="#" class="nav-item active" data-page="dashboard">
-        <span class="nav-icon">⊞</span>
+        <span class="nav-icon">?</span>
         <span class="nav-label">Dashboard</span>
       </a>
       <a href="#" class="nav-item" data-page="breach">
-        <span class="nav-icon">⚠</span>
+        <span class="nav-icon">?</span>
         <span class="nav-label">Breach Checker</span>
       </a>
       <a href="#" class="nav-item" data-page="password">
-        <span class="nav-icon">🔑</span>
+        <span class="nav-icon">??</span>
         <span class="nav-label">Password Health</span>
       </a>
       <a href="#" class="nav-item" data-page="ip">
-        <span class="nav-icon">🌐</span>
+        <span class="nav-icon">??</span>
         <span class="nav-label">IP Investigator</span>
       </a>
       <a href="#" class="nav-item" data-page="cve">
-        <span class="nav-icon">🛡</span>
+        <span class="nav-icon">??</span>
         <span class="nav-label">CVE Threat Feed</span>
       </a>
       <a href="#" class="nav-item" data-page="briefing">
-        <span class="nav-icon">🤖</span>
+        <span class="nav-icon">??</span>
         <span class="nav-label">AI Briefing</span>
       </a>
       <a href="#" class="nav-item" data-page="news">
-        <span class="nav-icon">📡</span>
+        <span class="nav-icon">??</span>
         <span class="nav-label">Security News</span>
       </a>
       <a href="#" class="nav-item" data-page="network">
-        <span class="nav-icon">🔒</span>
+        <span class="nav-icon">??</span>
         <span class="nav-label">Network Monitor</span>
       </a>
     </nav>
@@ -112,7 +112,7 @@
         <div class="card">
           <div class="card-header">PASSWORD HEALTH CHECK</div>
           <div class="input-row">
-            <input type="password" id="password-input" class="aegis-input" placeholder="Enter password to check..."><button onclick="togglePassword()" class="aegis-btn" id="toggle-pw" style="padding:12px 14px; border-color:#1e2d4a; color:#64748b;">👁</button><button class="aegis-btn" id="generate-pw-btn" style="padding:12px 16px; border-color:#1e2d4a; color:#64748b; font-size:10px;">⚡ GENERATE</button>
+            <input type="password" id="password-input" class="aegis-input" placeholder="Enter password to check..."><button onclick="togglePassword()" class="aegis-btn" id="toggle-pw" style="padding:12px 14px; border-color:#1e2d4a; color:#64748b;">??</button><button class="aegis-btn" id="generate-pw-btn" style="padding:12px 16px; border-color:#1e2d4a; color:#64748b; font-size:10px;">? GENERATE</button>
           </div>
           <div class="result-area" id="password-result"></div>
         </div>
@@ -124,8 +124,8 @@
           <div class="input-row">
             <input type="text" id="ip-input" class="aegis-input" placeholder="Enter IP address or domain...">
             <button class="aegis-btn" id="ip-btn">INVESTIGATE</button>
-            <button class="aegis-btn" id="my-ip-btn" style="border-color:#a78bfa; color:#a78bfa;">⌖ MY IP</button>
-            <button class="aegis-btn" id="clear-ip-btn" style="border-color:#1e2d4a; color:#64748b;">✕ CLEAR</button>
+            <button class="aegis-btn" id="my-ip-btn" style="border-color:#a78bfa; color:#a78bfa;">? MY IP</button>
+            <button class="aegis-btn" id="clear-ip-btn" style="border-color:#1e2d4a; color:#64748b;">? CLEAR</button>
           </div>
           <div style="display:grid; grid-template-columns:1fr 220px; gap:16px; align-items:start;">
             <div class="result-area" id="ip-result"></div>
@@ -141,7 +141,7 @@
         <div class="card">
           <div class="card-header">CVE THREAT FEED</div>
           <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">⟳ LOAD CVE FEED</button>
+            <button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">? LOAD CVE FEED</button>
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Source: US National Vulnerability Database (NVD)</div>
           </div>
           <div class="result-area" id="cve-result"><p class="placeholder-text">Click LOAD CVE FEED to pull the latest vulnerabilities.</p></div>
@@ -153,7 +153,7 @@
           <div class="card-header">AI DAILY BRIEFING</div>
           <div style="margin-bottom:20px;">
             <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-              <button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">⚡ GENERATE BRIEFING</button>
+              <button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">? GENERATE BRIEFING</button>
               <select id="briefing-style" class="aegis-input" style="max-width:220px;">
                 <option value="analyst">Analyst Summary</option>
                 <option value="executive">Executive Summary</option>
@@ -177,8 +177,8 @@
         <div class="card">
           <div class="card-header">SECURITY NEWS HEADLINES</div>
           <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <button onclick="loadSecurityNews()" class="aegis-btn">⟳ REFRESH HEADLINES</button>
-            <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Sources: The Hacker News · BleepingComputer · Dark Reading</div>
+            <button onclick="loadSecurityNews()" class="aegis-btn">? REFRESH HEADLINES</button>
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Sources: The Hacker News � BleepingComputer � Dark Reading</div>
           </div>
           <div class="result-area" id="news-result"><p class="placeholder-text">Click REFRESH HEADLINES to load the latest cybersecurity news.</p></div>
         </div>
@@ -188,15 +188,15 @@
         <div class="card">
           <div class="card-header">NETWORK MONITOR</div>
           <div style="margin-bottom:20px;">
-            <button class="aegis-btn" onclick="runNetworkScan()">⟳ RUN NETWORK SCAN</button>
+            <button class="aegis-btn" onclick="runNetworkScan()">? RUN NETWORK SCAN</button>
           </div>
           <div id="network-result"><p class="placeholder-text">Click RUN NETWORK SCAN to analyze your connection.</p></div>
           <div class="card" style="margin-top:24px;">
             <div class="card-header">PING TOOL</div>
             <div class="input-row">
               <input type="text" id="ping-input" class="aegis-input" placeholder="Enter IP, domain, or name (e.g. google, facebook, cloudflare)...">
-              <button class="aegis-btn" onclick="runPing()">⚡ PING</button>
-              <button class="aegis-btn" id="ping-stop-btn" style="border-color:#ef4444; color:#ef4444; display:none;" onclick="stopPing()">■ STOP</button>
+              <button class="aegis-btn" onclick="runPing()">? PING</button>
+              <button class="aegis-btn" id="ping-stop-btn" style="border-color:#ef4444; color:#ef4444; display:none;" onclick="stopPing()">� STOP</button>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;" id="ping-shortcuts"></div>
             <div id="ping-result"></div>
