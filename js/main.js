@@ -993,8 +993,8 @@ async function generateBriefing() {
     const formattedText = briefingText
       .replace(/\*\*(.*?)\*\*/g, '<span style="color:var(--amber); font-weight:bold;">$1</span>')
       .replace(/^(\d+\.\s+[A-Z\s]+:)/gm, '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-top:16px; margin-bottom:8px;">$1</div>')
-      .replace(/^[-•]\s+/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">? ')
-      .replace(/\n/g, '</div>\n');
+      .replace(/^[-•]\s+(.*?)$/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">&#9658; $1</div>')
+      .replace(/\n/g, ' ');
 
     const briefingHTML =
       '<div id="briefing-report" style="background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:28px; position:relative;">' +
