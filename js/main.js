@@ -959,12 +959,8 @@ async function generateBriefing() {
     'Keep the total briefing under 500 words. Write in a professional, authoritative tone.';
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
+    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
+      method: 'POST', body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
@@ -1968,6 +1964,7 @@ const GREEK_CIDRS = {
   '109.242.0.0/15': 'OTE Group Greece'
 };
 Object.assign(KNOWN_SAFE, GREEK_CIDRS);
+
 
 
 
