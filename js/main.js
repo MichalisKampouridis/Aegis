@@ -846,7 +846,7 @@ async function loadCVEFeed() {
   activeSeverityFilter = 'ALL';
   cveSearchTerm = '';
   try {
-    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
+    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&pubStartDate=2025-01-01T00:00:00.000&pubEndDate=2026-12-31T23:59:59.999'));
     const data = await response.json();
     if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
       resultDiv.innerHTML = '<p class="placeholder-text">No CVE data available right now. Try again later.</p>';
@@ -1582,8 +1582,8 @@ function getThreatLevelColor(level) {
 
 async function loadDashboardCVEs() {
   try {
-    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&apiKey=1f729c55-3075-47ec-9758-3e877ee1db97'));
-    if (!response.ok) response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
+    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&pubStartDate=2025-01-01T00:00:00.000&pubEndDate=2026-12-31T23:59:59.999&apiKey=1f729c55-3075-47ec-9758-3e877ee1db97'));
+    if (!response.ok) response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&pubStartDate=2025-01-01T00:00:00.000&pubEndDate=2026-12-31T23:59:59.999'));
     const data = await response.json();
     if (data.vulnerabilities) {
       const cves = data.vulnerabilities.map(extractCVEData);
