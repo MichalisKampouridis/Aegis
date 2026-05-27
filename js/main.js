@@ -533,7 +533,18 @@ async function investigateIP() {
   resultDiv.innerHTML = '<p class="loading">INVESTIGATING TARGET...</p>';
 
   try {
-    const ipResponse = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://ipwho.is/' + input));
+    // Resolve domain to IP first if needed
+    let targetIP = input;
+    if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(input) && !input.includes(':')) {
+      try {
+        const resolveResponse = await fetch('https://dns.google/resolve?name=' + input + '&type=A');
+        const resolveData = await resolveResponse.json();
+        if (resolveData.Answer && resolveData.Answer.length > 0) {
+          targetIP = resolveData.Answer[0].data;
+        }
+      } catch(e) {}
+    }
+    const ipResponse = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://ipwho.is/' + targetIP));
     const d = await ipResponse.json();
 
     if (d.status === 'fail') {
@@ -1749,6 +1760,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
 
 
 
