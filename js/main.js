@@ -605,7 +605,7 @@ async function investigateIP() {
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; gap:8px;">' +
       '<div class="breach-name" style="color:' + threatColor + '; font-size:16px;">' + threat + ' — ' + d.query + '</div>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:11px; padding:8px 16px;">&#9138; COPY</button>' +
+
       '<button onclick="exportIPPDF()" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">&#11015; PDF</button>' +
       '</div></div>' +
       (knownSafeLabel ? '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; margin-bottom:14px;">&#10003; Verified: ' + knownSafeLabel + '</div>' : '') +
