@@ -562,6 +562,16 @@ async function investigateIP() {
     let threatScore = 0;
     let threatReasons = [];
     d.query = d.ip || d.query || input;
+    // Normalize ipwho.is response fields
+    d.countryCode = d.country_code || d.countryCode || '';
+    d.regionName = d.region || d.regionName || 'Unknown';
+    d.isp = (d.connection && d.connection.isp) ? d.connection.isp : (d.isp || 'Unknown');
+    d.org = (d.connection && d.connection.org) ? d.connection.org : (d.org || 'Unknown');
+    d.as = (d.connection && d.connection.asn) ? 'AS' + d.connection.asn : (d.as || 'Unknown');
+    d.proxy = (d.security && d.security.proxy) ? d.security.proxy : (d.proxy || false);
+    d.hosting = (d.security && d.security.hosting) ? d.security.hosting : (d.hosting || false);
+    d.lat = d.latitude || d.lat || 0;
+    d.lon = d.longitude || d.lon || 0;
     const knownSafeLabel = isKnownSafe(d.query);
     console.log('d.query is:', d.query, 'd object:', JSON.stringify(d).slice(0,300));
     const isMalicious = KNOWN_MALICIOUS.some(function(range) { return d.query && d.query.startsWith(range); });
@@ -1740,6 +1750,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
 
 
 
