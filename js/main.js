@@ -1586,8 +1586,8 @@ function getThreatLevelColor(level) {
 
 async function loadDashboardCVEs() {
   try {
-    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20');
-    if (!response.ok) response = await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20');
+    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&apiKey=1f729c55-3075-47ec-9758-3e877ee1db97'));
+    if (!response.ok) response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
     const data = await response.json();
     if (data.vulnerabilities) {
       const cves = data.vulnerabilities.map(extractCVEData);
@@ -1972,3 +1972,4 @@ const GREEK_CIDRS = {
   '109.242.0.0/15': 'OTE Group Greece'
 };
 Object.assign(KNOWN_SAFE, GREEK_CIDRS);
+
