@@ -1822,3 +1822,34 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 
 
 
+
+
+
+// CIDR RANGE CHECKING
+function ipToInt(ip) {
+  return ip.split('.').reduce(function(acc, oct) { return (acc << 8) + parseInt(oct); }, 0) >>> 0;
+}
+
+function ipInCIDR(ip, cidr) {
+  try {
+    const parts = cidr.split('/');
+    const base = parts[0];
+    const bits = parseInt(parts[1]);
+    const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+    return (ipToInt(ip) & mask) === (ipToInt(base) & mask);
+  } catch(e) { return false; }
+}
+
+// Override isKnownSafe with CIDR support
+function isKnownSafe(ip) {
+  if (!ip) return null;
+  if (KNOWN_SAFE[ip]) return KNOWN_SAFE[ip];
+  for (const prefix of Object.keys(KNOWN_SAFE)) {
+    if (prefix.includes('/')) {
+      if (ipInCIDR(ip, prefix)) return KNOWN_SAFE[prefix];
+    } else if (prefix.endsWith('.0') && ip.startsWith(prefix.slice(0, -1))) {
+      return KNOWN_SAFE[prefix];
+    }
+  }
+  return null;
+}
