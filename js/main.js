@@ -1470,69 +1470,41 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 async function loadDashboard() {
   const dashDiv = document.getElementById('dashboard-content');
   if (!dashDiv) return;
-
   dashDiv.innerHTML = '<p class="loading">LOADING AEGIS DASHBOARD...</p>';
-
-  // Load CVEs and News in parallel
-  const [cveData, newsData, ipData] = await Promise.all([
-    loadDashboardCVEs(),
-    loadDashboardNews(),
-    loadDashboardIP()
-  ]);
-
-  const threatLevel = calculateThreatLevel(cveData);
-  const threatColor = getThreatLevelColor(threatLevel);
-
+  const [newsData, ipData] = await Promise.all([loadDashboardNews(), loadDashboardIP()]);
+  const vpnActive = ipData.isVPN;
+  const threatLevel = vpnActive ? 'LOW' : 'ELEVATED';
+  const threatColor = vpnActive ? '#10b981' : '#f59e0b';
   dashDiv.innerHTML =
-    // THREAT LEVEL BANNER
     '<div style="background:' + threatColor + '18; border:1px solid ' + threatColor + '; border-radius:4px; padding:20px 28px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">' +
-    '<div>' +
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:3px; margin-bottom:6px;">CURRENT THREAT LEVEL</div>' +
-    '<div style="font-family:var(--font-title); font-size:28px; color:' + threatColor + '; letter-spacing:4px;">&#9888; ' + threatLevel + '</div>' +
-    '</div>' +
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); text-align:right;">LAST UPDATED<br><span style="color:var(--text-primary);">' + new Date().toUTCString() + '</span></div>' +
-    '</div>' +
-
-    // STAT CARDS
+    '<div><div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:3px; margin-bottom:6px;">CURRENT THREAT LEVEL</div>' +
+    '<div style="font-family:var(--font-title); font-size:28px; color:' + threatColor + '; letter-spacing:4px;">&#9888; ' + threatLevel + '</div></div>' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); text-align:right;">LAST UPDATED<br><span style="color:var(--text-primary);">' + new Date().toUTCString() + '</span></div></div>' +
     '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">' +
-    renderStatCard('CVEs LOADED', cveData.length, cveData.length > 0 ? '#f59e0b' : '#64748b', '&#128737;') +
-    renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '&#128225;') +
-    renderStatCard('CRITICAL CVEs', cveData.filter(function(c) { return c.severity === 'CRITICAL'; }).length, '#ef4444', '&#128308;') +
     renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '&#128274;' : '&#9888;') +
+    renderStatCard('VPN STATUS', ipData.isVPN ? 'ACTIVE' : 'NOT DETECTED', ipData.isVPN ? '#10b981' : '#ef4444', ipData.isVPN ? '&#9989;' : '&#9888;') +
+    renderStatCard('LOCATION', (ipData.city || 'Unknown') + ', ' + (ipData.country || ''), '#60a5fa', '&#127760;') +
+    renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '&#128225;') +
     '</div>' +
-
-    // QUICK ACTIONS
-    '<div style="margin-bottom:24px;">' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">QUICK ACTIONS</div>' +
+    '<div style="margin-bottom:24px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">QUICK ACTIONS</div>' +
     '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
-
     ['password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
       const labels = { password: '&#128273; Password Health', ip: '&#127760; IP Investigator', cve: '&#128737; CVE Feed', briefing: '&#129302; AI Briefing', news: '&#128225; Security News', network: '&#128274; Network Monitor' };
       return '<button onclick="navigateTo(' + String.fromCharCode(39) + page + String.fromCharCode(39) + ')" class="aegis-btn" style="font-size:12px; padding:10px 16px;">' + labels[page] + '</button>';
     }).join('') +
-
-    // CVEs AND NEWS SIDE BY SIDE
+    '</div></div>' +
     '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">' +
-
-    // LATEST CVEs
-    '<div class="card">' +
-    '<div class="card-header">LATEST CVEs</div>' +
-    (cveData.length > 0 ? cveData.slice(0, 5).map(function(cve) {
-      const color = getSeverityColor(cve.severity);
-      return '<div style="padding:12px 0; border-bottom:1px solid var(--border);">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">' +
-        '<span style="font-family:var(--font-title); font-size:13px; color:' + color + ';">' + cve.id + '</span>' +
-        '<span style="background:' + color + '; color:#020818; font-family:var(--font-mono); font-size:10px; padding:2px 8px; border-radius:2px;">' + cve.severity + '</span>' +
-        '</div>' +
-        '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); line-height:1.5;">' + cve.desc.slice(0, 100) + '...</div>' +
-        '</div>';
-    }).join('') : '<p class="placeholder-text">No CVE data loaded.</p>') +
-    '<button onclick="navigateTo(\'cve\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL CVEs ></button>' +
+    '<div class="card"><div class="card-header">&#127760; YOUR CONNECTION</div>' +
+    '<div style="font-family:var(--font-mono); font-size:14px; color:var(--text-dim); line-height:2.2;">' +
+    'IP ADDRESS: <span style="color:var(--text-primary)">' + (ipData.ip || 'Unknown') + '</span><br>' +
+    'LOCATION: <span style="color:var(--text-primary)">' + (ipData.city || 'Unknown') + ', ' + (ipData.country || 'Unknown') + '</span><br>' +
+    'ISP: <span style="color:var(--text-primary)">' + (ipData.isp || 'Unknown') + '</span><br>' +
+    'VPN: <span style="color:' + (ipData.isVPN ? '#10b981' : '#ef4444') + '">' + (ipData.isVPN ? '&#9989; ACTIVE' : '&#9888; NOT DETECTED') + '</span><br>' +
+    'THREAT SCORE: <span style="color:' + threatColor + '">' + (ipData.isVPN ? '0/100 - SECURE' : '25/100 - MONITOR') + '</span>' +
     '</div>' +
-
-    // LATEST NEWS
-    '<div class="card">' +
-    '<div class="card-header">LATEST NEWS</div>' +
+    '<button onclick="navigateTo(' + String.fromCharCode(39) + 'network' + String.fromCharCode(39) + ')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">FULL NETWORK SCAN &#9654;</button>' +
+    '</div>' +
+    '<div class="card"><div class="card-header">&#128225; LATEST NEWS</div>' +
     (newsData.length > 0 ? newsData.slice(0, 5).map(function(item) {
       const categories = getNewsCategories(item.title);
       const borderColor = categories.length > 0 ? categories[0].color : 'var(--border)';
@@ -1543,52 +1515,10 @@ async function loadDashboard() {
         '<span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">' + timeAgo(item.pubDate) + '</span>' +
         '</div></div>';
     }).join('') : '<p class="placeholder-text">No news loaded.</p>') +
-    '<button onclick="navigateTo(\'news\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL NEWS ></button>' +
-    '</div>' +
-    '</div>';
+    '<button onclick="navigateTo(' + String.fromCharCode(39) + 'news' + String.fromCharCode(39) + ')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL NEWS &#9654;</button>' +
+    '</div></div>';
 }
 
-function renderStatCard(label, value, color, icon) {
-  return '<div style="background:var(--bg-card); border:1px solid var(--border); border-top:2px solid ' + color + '; border-radius:4px; padding:20px; text-align:center;">' +
-    '<div style="font-size:24px; margin-bottom:8px;">' + icon + '</div>' +
-    '<div style="font-family:var(--font-title); font-size:20px; color:' + color + '; margin-bottom:6px;">' + value + '</div>' +
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:2px;">' + label + '</div>' +
-    '</div>';
-}
-
-function calculateThreatLevel(cves) {
-  if (cves.length === 0) return 'UNKNOWN';
-  const critical = cves.filter(function(c) { return c.severity === 'CRITICAL' && new Date(c.published) > new Date('1/1/2020'); }).length;
-  const high = cves.filter(function(c) { return c.severity === 'HIGH' && new Date(c.published) > new Date('1/1/2020'); }).length;
-  if (critical >= 3) return 'CRITICAL';
-  if (critical >= 1 || high >= 5) return 'HIGH';
-  if (high >= 2) return 'ELEVATED';
-  return 'LOW';
-}
-
-function getThreatLevelColor(level) {
-  switch(level) {
-    case 'CRITICAL': return '#ef4444';
-    case 'HIGH': return '#f97316';
-    case 'ELEVATED': return '#f59e0b';
-    case 'LOW': return '#10b981';
-    default: return '#64748b';
-  }
-}
-
-async function loadDashboardCVEs() {
-  try {
-    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
-    if (!response.ok) response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
-    const data = await response.json();
-    if (data.vulnerabilities) {
-      const cves = data.vulnerabilities.reverse().map(extractCVEData);
-      if (allCVEs.length === 0) allCVEs = cves;
-      return cves;
-    }
-    return [];
-  } catch (e) { return allCVEs.length > 0 ? allCVEs : []; }
-}
 
 async function loadDashboardNews() {
   try {
