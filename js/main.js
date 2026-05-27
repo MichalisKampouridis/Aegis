@@ -1396,18 +1396,18 @@ function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
   // VPN STATUS
   const vpnActive = ipData.success && ipData.isVPN;
   const vpnColor = vpnActive ? '#10b981' : '#ef4444';
-  const vpnLabel = vpnActive ? '? VPN ACTIVE' : '? NO VPN DETECTED';
+  const vpnLabel = vpnActive ? '&#9989; VPN ACTIVE' : '&#9888; NO VPN DETECTED';
   const flag = ipData.success ? countryCodeToFlag(ipData.countryCode) : '';
 
   // WEBRTC
   const webrtcLeak = webrtcData.success && webrtcData.publicIPs.length > 0;
   const webrtcColor = webrtcLeak ? '#ef4444' : '#10b981';
-  const webrtcLabel = webrtcLeak ? '? LEAK DETECTED' : '? NO LEAK';
+  const webrtcLabel = webrtcLeak ? '&#9888; LEAK DETECTED' : '&#9989; NO LEAK';
 
   // DNS
   const dnsLeak = dnsData.success && dnsData.isLeaking;
   const dnsColor = dnsLeak ? '#ef4444' : '#10b981';
-  const dnsLabel = dnsLeak ? '? DNS LEAK' : '? DNS SECURE';
+  const dnsLabel = dnsLeak ? '&#9888; DNS LEAK' : '&#9989; DNS SECURE';
 
   resultDiv.innerHTML =
     // VPN STATUS CARD
