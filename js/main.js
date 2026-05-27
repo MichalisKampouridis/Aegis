@@ -1953,3 +1953,22 @@ const GREEK_EXTENDED_CIDRS = {
   '188.112.0.0/14': 'Wind Mobile Greece'
 };
 Object.assign(KNOWN_SAFE, GREEK_EXTENDED_CIDRS);
+
+// Greek ISP CIDR Ranges
+const GREEK_CIDRS = {
+  '46.10.0.0/15': 'Cosmote Greece',
+  '62.38.0.0/15': 'Cosmote Greece',
+  '176.63.0.0/18': 'Cosmote Greece',
+  '94.64.0.0/14': 'Vodafone Greece',
+  '195.167.0.0/16': 'Vodafone Greece',
+  '212.205.0.0/16': 'Wind Hellas',
+  '94.70.0.0/15': 'Wind Hellas',
+  '195.130.0.0/17': 'Forthnet Greece',
+  '83.235.0.0/16': 'Forthnet Greece',
+  '83.212.0.0/14': 'GRNET',
+  '195.251.0.0/16': 'GRNET',
+  '77.235.32.0/19': 'OTE Group Greece',
+  '78.87.0.0/16': 'OTE Group Greece',
+  '109.242.0.0/15': 'OTE Group Greece'
+};
+Object.assign(KNOWN_SAFE, GREEK_CIDRS);
