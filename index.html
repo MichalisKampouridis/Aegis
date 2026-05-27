@@ -3,11 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aegis � Personal Security Intelligence Dashboard</title>
-<link rel="stylesheet" href="css/style.css"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128737;</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src https:; frame-src https://www.openstreetmap.org;">
+<title>Aegis — Personal Security Intelligence Dashboard</title>
+<link rel="stylesheet" href="css/style.css">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SPLASH SCREEN
+════════════════════════════════════════════════════════════ -->
 <div id="splash-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#020818; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;">
   <div id="splash-grid" style="position:absolute; top:0; left:0; width:100%; height:100%; background-image:linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px); background-size:40px 40px; animation:gridFade 2s ease-in-out;"></div>
   <div style="position:relative; z-index:2; display:flex; flex-direction:column; align-items:center;">
@@ -24,15 +29,49 @@
       </svg>
     </div>
     <div style="font-family:Orbitron,sans-serif; font-size:52px; font-weight:900; color:#f59e0b; letter-spacing:12px; text-shadow:0 0 30px rgba(245,158,11,0.8), 0 0 60px rgba(245,158,11,0.4); animation:textFadeIn 0.8s ease-out 0.5s both;">AEGIS</div>
-    <div style="font-family:Share Tech Mono,monospace; font-size:14px; color:#64748b; letter-spacing:5px; margin-top:8px; animation:textFadeIn 0.8s ease-out 0.8s both;">PERSONAL SECURITY INTELLIGENCE</div>
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:14px; color:#64748b; letter-spacing:5px; margin-top:8px; animation:textFadeIn 0.8s ease-out 0.8s both;">PERSONAL SECURITY INTELLIGENCE</div>
     <div style="width:1px; height:40px; background:linear-gradient(to bottom, #f59e0b, transparent); margin:24px 0; animation:textFadeIn 0.8s ease-out 1s both;"></div>
-    <div id="splash-status" style="font-family:Share Tech Mono,monospace; font-size:13px; color:#f59e0b; letter-spacing:3px; height:24px; animation:textFadeIn 0.8s ease-out 1s both;">INITIALIZING...</div>
+    <div id="splash-status" style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#f59e0b; letter-spacing:3px; height:24px; animation:textFadeIn 0.8s ease-out 1s both;">INITIALIZING...</div>
     <div style="width:400px; height:2px; background:#0d1526; border-radius:2px; margin-top:16px; border:1px solid #1e2d4a; animation:textFadeIn 0.8s ease-out 1s both;">
       <div id="splash-bar" style="height:2px; background:linear-gradient(to right, #b45309, #f59e0b, #fcd34d); border-radius:2px; width:0%; transition:width 0.4s ease; box-shadow:0 0 12px #f59e0b;"></div>
     </div>
-    <div style="font-family:Share Tech Mono,monospace; font-size:11px; color:#1e3a5f; letter-spacing:3px; margin-top:48px; animation:textFadeIn 0.8s ease-out 1.2s both;">v1.0.0 � AEGIS PLATFORM � 2026</div>
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#1e3a5f; letter-spacing:3px; margin-top:48px; animation:textFadeIn 0.8s ease-out 1.2s both;" id="splash-version">v1.0.0 · AEGIS PLATFORM · 2026</div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OFFLINE BANNER
+════════════════════════════════════════════════════════════ -->
+<div id="offline-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:8888; background:#b45309; color:#020818; font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:3px; text-align:center; padding:8px; font-weight:bold;">
+  ⚠ OFFLINE — SHOWING CACHED DATA — RECONNECTING...
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CUSTOM TITLE BAR (Electron desktop only)
+════════════════════════════════════════════════════════════ -->
+<div id="title-bar" class="title-bar">
+  <div class="title-bar-logo">
+    <svg viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg" style="width:18px; height:21px; filter:drop-shadow(0 0 4px rgba(245,158,11,0.6));">
+      <polygon points="30,2 58,15 58,40 30,68 2,40 2,15" fill="#0a0f1e" stroke="#f59e0b" stroke-width="3"/>
+      <polygon points="30,10 50,20 50,38 30,58 10,38 10,20" fill="#0d1526" stroke="#f59e0b" stroke-width="1.5"/>
+      <line x1="30" y1="10" x2="30" y2="58" stroke="#f59e0b" stroke-width="2"/>
+      <line x1="10" y1="29" x2="50" y2="29" stroke="#f59e0b" stroke-width="2"/>
+      <polygon points="30,18 38,29 30,40 22,29" fill="#f59e0b" opacity="0.9"/>
+    </svg>
+    <span class="title-bar-name">AEGIS</span>
+    <span class="title-bar-sep">·</span>
+    <span class="title-bar-page" id="title-bar-page">Security Dashboard</span>
+  </div>
+  <div class="title-bar-controls">
+    <button class="tb-btn tb-min" onclick="if(window.aegis) window.aegis.minimize();" title="Minimize">&#8722;</button>
+    <button class="tb-btn tb-max" id="tb-max-btn" onclick="if(window.aegis) window.aegis.maximize();" title="Maximize">&#9633;</button>
+    <button class="tb-btn tb-close" onclick="if(window.aegis) window.aegis.close();" title="Close to tray">&#215;</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════════════ -->
 <div class="app-container">
   <aside class="sidebar">
     <div class="logo-block">
@@ -53,10 +92,6 @@
         <span class="nav-icon">&#127968;</span>
         <span class="nav-label">Dashboard</span>
       </a>
-
-
-
-
       <a href="#" class="nav-item" data-page="password">
         <span class="nav-icon">&#128273;</span>
         <span class="nav-label">Password Health</span>
@@ -81,43 +116,47 @@
         <span class="nav-icon">&#128274;</span>
         <span class="nav-label">Network Monitor</span>
       </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <span class="nav-icon">&#9881;</span>
+        <span class="nav-label">Settings</span>
+      </a>
     </nav>
     <div class="sidebar-footer">
-      <span class="status-dot"></span>
-      <span class="status-text">SYSTEM ONLINE</span>
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-text" id="status-text">SYSTEM ONLINE</span>
     </div>
   </aside>
+
   <main class="main-content">
     <div class="page-header">
       <h1 class="page-title" id="page-title">Security Dashboard</h1>
-      <div class="header-meta" style="display:flex; align-items:center; gap:12px;"><span id="live-time"></span><button onclick="showUTC=!showUTC; updateClock();" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-mono); font-size:10px; padding:3px 8px; border-radius:2px; cursor:pointer; letter-spacing:1px;">UTC/EET</button></div>
+      <div class="header-meta" style="display:flex; align-items:center; gap:12px;">
+        <span id="live-time"></span>
+        <button onclick="showUTC=!showUTC; updateClock();" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-mono); font-size:10px; padding:3px 8px; border-radius:2px; cursor:pointer; letter-spacing:1px;">UTC/EET</button>
+      </div>
     </div>
+
     <div class="content-area" id="content-area">
 
+      <!-- DASHBOARD -->
       <div class="page active" id="page-dashboard">
         <div id="dashboard-content"></div>
       </div>
 
-
-
-
-
-
-
-
-
-
-
+      <!-- PASSWORD HEALTH -->
       <div class="page" id="page-password">
         <div class="card">
           <div class="card-header">PASSWORD HEALTH CHECK</div>
           <div class="input-row">
-            <input type="password" id="password-input" class="aegis-input" placeholder="Enter password to check..."><button onclick="togglePassword()" class="aegis-btn" id="toggle-pw" style="padding:12px 14px; border-color:#1e2d4a; color:#64748b;">&#128065;</button><button class="aegis-btn" id="generate-pw-btn" style="padding:12px 16px; border-color:#1e2d4a; color:#64748b; font-size:10px;">&#9889; GENERATE</button>
+            <input type="password" id="password-input" class="aegis-input" placeholder="Enter password to check...">
+            <button onclick="togglePassword()" class="aegis-btn" id="toggle-pw" style="padding:12px 14px; border-color:#1e2d4a; color:#64748b;">&#128065;</button>
+            <button class="aegis-btn" id="generate-pw-btn" style="padding:12px 16px; border-color:#1e2d4a; color:#64748b; font-size:10px;">&#9889; GENERATE</button>
           </div>
           <div class="result-area" id="password-result"></div>
         </div>
       </div>
 
+      <!-- IP INVESTIGATOR -->
       <div class="page" id="page-ip">
         <div class="card">
           <div class="card-header">IP / DOMAIN INVESTIGATOR</div>
@@ -137,6 +176,7 @@
         </div>
       </div>
 
+      <!-- CVE FEED -->
       <div class="page" id="page-cve">
         <div class="card">
           <div class="card-header">CVE THREAT FEED</div>
@@ -148,6 +188,7 @@
         </div>
       </div>
 
+      <!-- AI BRIEFING -->
       <div class="page" id="page-briefing">
         <div class="card">
           <div class="card-header">AI DAILY BRIEFING</div>
@@ -173,6 +214,7 @@
         </div>
       </div>
 
+      <!-- SECURITY NEWS -->
       <div class="page" id="page-news">
         <div class="card">
           <div class="card-header">SECURITY NEWS HEADLINES</div>
@@ -184,6 +226,7 @@
         </div>
       </div>
 
+      <!-- NETWORK MONITOR -->
       <div class="page" id="page-network">
         <div class="card">
           <div class="card-header">NETWORK MONITOR</div>
@@ -202,27 +245,152 @@
             <div id="ping-result"></div>
           </div>
         </div>
+
+        <!-- INCIDENT LOG -->
+        <div class="card" style="margin-top:24px;">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            INCIDENT LOG
+            <div style="display:flex; gap:8px;">
+              <button onclick="exportIncidents()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">&#11015; EXPORT</button>
+              <button onclick="clearIncidentLog()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#1e2d4a; color:#64748b;">CLEAR</button>
+            </div>
+          </div>
+          <div id="incident-log-content">
+            <p class="placeholder-text">No incidents recorded yet. Incidents are logged automatically by background monitoring.</p>
+          </div>
+        </div>
       </div>
 
-    </div>
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="card">
+          <div class="card-header">SYSTEM SETTINGS</div>
+
+          <!-- Auto-launch -->
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">AUTO-LAUNCH ON STARTUP</div>
+              <div class="settings-desc">Start Aegis automatically when your computer boots</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-autolaunch" onchange="saveSetting('autoLaunch', this.checked); if(window.aegis) window.aegis.setAutoLaunch(this.checked);">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- Monitor interval -->
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">BACKGROUND MONITORING INTERVAL</div>
+              <div class="settings-desc">How often Aegis checks your network in the background</div>
+            </div>
+            <select id="setting-interval" class="aegis-input" style="max-width:160px;" onchange="saveSetting('monitorInterval', parseInt(this.value)); if(window.aegis) window.aegis.restartMonitor();">
+              <option value="1">Every 1 minute</option>
+              <option value="5" selected>Every 5 minutes</option>
+              <option value="10">Every 10 minutes</option>
+              <option value="30">Every 30 minutes</option>
+            </select>
+          </div>
+
+          <!-- Notifications -->
+          <div style="font-family:var(--font-mono); font-size:13px; color:var(--amber); letter-spacing:2px; margin:24px 0 16px;">NOTIFICATIONS</div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">IP ADDRESS CHANGED</div>
+              <div class="settings-desc">Alert when your public IP address changes</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-notif-ip" onchange="saveNotifSetting('ipChange', this.checked);">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">VPN DISCONNECTED</div>
+              <div class="settings-desc">Alert when VPN is detected as off while it was on</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-notif-vpn" onchange="saveNotifSetting('vpnDrop', this.checked);">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">CRITICAL CVE DETECTED</div>
+              <div class="settings-desc">Alert when a CRITICAL severity CVE appears in the feed</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-notif-cve" onchange="saveNotifSetting('criticalCVE', this.checked);">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">NETWORK ANOMALY</div>
+              <div class="settings-desc">Alert on latency spikes or DNS server changes</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-notif-anomaly" onchange="saveNotifSetting('anomaly', this.checked);">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="card">
+          <div class="card-header">DATA MANAGEMENT</div>
+          <div id="storage-info" style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:20px; line-height:2;">
+            Loading storage info...
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button onclick="exportAllData()" class="aegis-btn" style="border-color:#a78bfa; color:#a78bfa;">&#11015; EXPORT ALL DATA</button>
+            <button onclick="clearAllData()" class="aegis-btn" style="border-color:#ef4444; color:#ef4444;">&#128465; CLEAR ALL DATA</button>
+          </div>
+        </div>
+
+        <!-- Keyboard Shortcuts -->
+        <div class="card">
+          <div class="card-header">KEYBOARD SHORTCUTS</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="shortcut-row"><kbd>Ctrl+1</kbd><span>Dashboard</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+2</kbd><span>Password Health</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+3</kbd><span>IP Investigator</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+4</kbd><span>CVE Feed</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+5</kbd><span>AI Briefing</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+6</kbd><span>Security News</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+7</kbd><span>Network Monitor</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+8</kbd><span>Settings</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+R</kbd><span>Refresh current page</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+Shift+S</kbd><span>Run network scan</span></div>
+            <div class="shortcut-row"><kbd>F11</kbd><span>Toggle fullscreen</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+Q</kbd><span>Quit to tray</span></div>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="card">
+          <div class="card-header">ABOUT AEGIS</div>
+          <div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:2.2;">
+            <div>VERSION: <span style="color:var(--amber);" id="about-version">1.0.0</span></div>
+            <div>PLATFORM: <span style="color:var(--text-primary);" id="about-platform">Desktop</span></div>
+            <div>DATA PATH: <span style="color:var(--text-primary); font-size:11px;" id="about-datapath">—</span></div>
+            <div style="margin-top:16px;">
+              <button onclick="if(window.aegis) window.aegis.openExternal('https://github.com/Draus69/Aegis')" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">&#128279; GITHUB REPO</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
   </main>
 </div>
+
 <script src="js/main.js"></script>
 <script src="js/ping.js"></script>
+<script src="js/desktop.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

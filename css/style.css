@@ -8,6 +8,7 @@
   --bg-primary: #020818;
   --bg-secondary: #0a0f1e;
   --bg-card: #0d1526;
+  --title-bar-height: 38px;
   --bg-input: #060d1f;
   --amber: #f59e0b;
   --amber-dim: #b45309;
@@ -33,9 +34,206 @@ body {
   font-size: 16px;
 }
 
+/* ── CUSTOM TITLE BAR ─────────────────────────────────────── */
+.title-bar {
+  height: var(--title-bar-height);
+  background: #060d1f;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 16px;
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1000;
+}
+
+.title-bar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-bar-name {
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--amber);
+  letter-spacing: 4px;
+}
+
+.title-bar-sep {
+  color: var(--border);
+  font-size: 14px;
+}
+
+.title-bar-page {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+
+.title-bar-controls {
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.tb-btn {
+  width: 32px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tb-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.tb-close:hover { background: #ef4444 !important; color: #fff !important; }
+.tb-max:hover { background: var(--amber-glow); color: var(--amber); }
+.tb-min:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+/* When Electron title bar is present, shift app layout down */
+body.has-titlebar .app-container {
+  height: calc(100vh - var(--title-bar-height));
+}
+
 .app-container {
   display: flex;
   height: 100vh;
+}
+
+/* ── SETTINGS PAGE ────────────────────────────────────────── */
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-row:last-of-type { border-bottom: none; }
+
+.settings-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.settings-desc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  transition: 0.2s;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: '';
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: var(--text-dim);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(245,158,11,0.2);
+  border-color: var(--amber);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+  background: var(--amber);
+}
+
+/* Keyboard shortcuts */
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+kbd {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+/* Incident log */
+.incident-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.incident-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.incident-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.incident-desc {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
 }
 
 /* SIDEBAR */

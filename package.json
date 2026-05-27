@@ -1,0 +1,93 @@
+{
+  "name": "aegis",
+  "version": "1.0.0",
+  "description": "Personal Security Intelligence Dashboard",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.aegis.security",
+    "productName": "Aegis",
+    "copyright": "Copyright © 2026 Michalis",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "css/**/*",
+      "js/**/*",
+      "assets/**/*",
+      "index.html"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Security"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Aegis"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Draus69",
+      "repo": "Aegis"
+    }
+  },
+  "keywords": [
+    "security",
+    "cybersecurity",
+    "dashboard"
+  ],
+  "author": "Michalis",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "auto-launch": "^5.0.6",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.3.0"
+  }
+}
