@@ -561,6 +561,7 @@ async function investigateIP() {
 
     let threatScore = 0;
     let threatReasons = [];
+    d.query = d.ip || d.query || input;
     const knownSafeLabel = isKnownSafe(d.query);
     console.log('d.query is:', d.query, 'd object:', JSON.stringify(d).slice(0,300));
     const isMalicious = KNOWN_MALICIOUS.some(function(range) { return d.query && d.query.startsWith(range); });
@@ -1739,6 +1740,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
 
 
 
