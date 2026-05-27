@@ -602,6 +602,7 @@ async function investigateIP() {
       (!knownSafeLabel ? '<div style="margin:14px 0;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT SCORE</div><div style="background:#0a0f1e; border-radius:2px; height:8px; width:100%;"><div style="background:' + threatColor + '; height:8px; width:' + barWidth + '%; border-radius:2px; box-shadow:0 0 8px ' + threatColor + ';"></div></div><div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-top:6px;">' + threatScore + '/100</div></div>' : '') +
       (threatReasons.length > 0 ? '<div style="margin-bottom:14px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT INDICATORS</div>' + threatReasons.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-bottom:4px;">▸ ' + r + '</div>'; }).join('') + '</div>' : '') +
       '<div class="breach-detail" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">' +
+      console.log('Before HTML - regionName:', d.regionName, 'isp:', d.isp, 'lat:', d.lat, 'lon:', d.lon) ||
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">NETWORK INTELLIGENCE</div>' +
       '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
       '<div>REVERSE DNS: <span style="color:var(--text-primary)">' + reverseDNS + '</span></div>' +
@@ -1750,6 +1751,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     }
   });
 });
+
 
 
 
