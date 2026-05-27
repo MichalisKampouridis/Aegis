@@ -605,10 +605,10 @@ async function investigateIP() {
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; gap:8px;">' +
       '<div class="breach-name" style="color:' + threatColor + '; font-size:16px;">' + threat + ' — ' + d.query + '</div>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:11px; padding:8px 16px;">? COPY</button>' +
-      '<button onclick="exportIPPDF()" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">? PDF</button>' +
+      '<button id="copy-ip-btn" onclick="copyIPReport()" class="aegis-btn" style="font-size:11px; padding:8px 16px;">&#9138; COPY</button>' +
+      '<button onclick="exportIPPDF()" class="aegis-btn" style="font-size:11px; padding:8px 16px; border-color:#a78bfa; color:#a78bfa;">&#11015; PDF</button>' +
       '</div></div>' +
-      (knownSafeLabel ? '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; margin-bottom:14px;">? Verified: ' + knownSafeLabel + '</div>' : '') +
+      (knownSafeLabel ? '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; margin-bottom:14px;">&#10003; Verified: ' + knownSafeLabel + '</div>' : '') +
       (!knownSafeLabel ? '<div style="margin:14px 0;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT SCORE</div><div style="background:#0a0f1e; border-radius:2px; height:8px; width:100%;"><div style="background:' + threatColor + '; height:8px; width:' + barWidth + '%; border-radius:2px; box-shadow:0 0 8px ' + threatColor + ';"></div></div><div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-top:6px;">' + threatScore + '/100</div></div>' : '') +
       (threatReasons.length > 0 ? '<div style="margin-bottom:14px;"><div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">THREAT INDICATORS</div>' + threatReasons.map(function(r) { return '<div style="font-family:var(--font-mono); font-size:13px; color:' + threatColor + '; margin-bottom:4px;">? ' + r + '</div>'; }).join('') + '</div>' : '') +
       '<div class="breach-detail" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">' +
@@ -1008,7 +1008,7 @@ async function generateBriefing() {
       '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">' +
       '<div style="background:' + threatLevelColor + '; color:#020818; font-family:var(--font-title); font-size:13px; font-weight:900; padding:8px 20px; border-radius:3px; letter-spacing:2px;">? ' + threatLevel + '</div>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">? COPY</button>' +
+      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">&#9138; COPY</button>' +
       '<button onclick="exportBriefingPDF()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">? PDF</button>' +
       '</div></div></div>' +
       '<div style="font-family:var(--font-mono); font-size:14px; color:var(--text-primary); line-height:1.8; border-top:1px solid var(--border); padding-top:20px;">' +
