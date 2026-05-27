@@ -1853,3 +1853,62 @@ function isKnownSafe(ip) {
   }
   return null;
 }
+
+// Add CIDR ranges to KNOWN_SAFE
+const KNOWN_SAFE_CIDR = {
+  '8.8.8.0/24': 'Google Public DNS',
+  '8.8.4.0/24': 'Google Public DNS',
+  '142.250.0.0/15': 'Google LLC',
+  '172.217.0.0/16': 'Google LLC',
+  '216.58.192.0/19': 'Google LLC',
+  '74.125.0.0/16': 'Google LLC',
+  '64.233.160.0/19': 'Google LLC',
+  '66.102.0.0/20': 'Google LLC',
+  '209.85.128.0/17': 'Google LLC',
+  '1.1.1.0/24': 'Cloudflare DNS',
+  '1.0.0.0/24': 'Cloudflare DNS',
+  '104.16.0.0/12': 'Cloudflare CDN',
+  '172.64.0.0/13': 'Cloudflare CDN',
+  '162.158.0.0/15': 'Cloudflare CDN',
+  '198.41.128.0/17': 'Cloudflare CDN',
+  '13.64.0.0/11': 'Microsoft Azure',
+  '20.0.0.0/8': 'Microsoft Azure',
+  '40.64.0.0/10': 'Microsoft Azure',
+  '52.0.0.0/6': 'Microsoft Azure',
+  '104.40.0.0/13': 'Microsoft Azure',
+  '157.54.0.0/15': 'Microsoft',
+  '207.46.0.0/16': 'Microsoft',
+  '3.0.0.0/8': 'Amazon AWS',
+  '18.0.0.0/8': 'Amazon AWS',
+  '52.0.0.0/8': 'Amazon AWS',
+  '54.0.0.0/8': 'Amazon AWS',
+  '205.251.192.0/19': 'Amazon CloudFront',
+  '13.224.0.0/14': 'Amazon CloudFront',
+  '17.0.0.0/8': 'Apple Inc.',
+  '157.240.0.0/16': 'Meta (Facebook)',
+  '69.63.176.0/20': 'Meta (Facebook)',
+  '69.171.224.0/19': 'Meta (Facebook)',
+  '173.252.64.0/18': 'Meta (Facebook)',
+  '140.82.112.0/20': 'GitHub',
+  '185.199.108.0/22': 'GitHub Pages',
+  '192.30.252.0/22': 'GitHub',
+  '23.0.0.0/12': 'Akamai CDN',
+  '151.101.0.0/16': 'Fastly CDN',
+  '199.232.0.0/16': 'Fastly CDN',
+  '104.244.42.0/21': 'Twitter/X'
+};
+Object.assign(KNOWN_SAFE, KNOWN_SAFE_CIDR);
+
+// Override isKnownSafe with CIDR support
+function isKnownSafe(ip) {
+  if (!ip) return null;
+  if (KNOWN_SAFE[ip]) return KNOWN_SAFE[ip];
+  for (const prefix of Object.keys(KNOWN_SAFE)) {
+    if (prefix.includes('/')) {
+      if (ipInCIDR(ip, prefix)) return KNOWN_SAFE[prefix];
+    } else if (prefix.endsWith('.0') && ip.startsWith(prefix.slice(0, -1))) {
+      return KNOWN_SAFE[prefix];
+    }
+  }
+  return null;
+}
