@@ -1505,9 +1505,9 @@ async function loadDashboard() {
     '<div style="margin-bottom:24px;">' +
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">QUICK ACTIONS</div>' +
     '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
-    ['breach', 'password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
-      const labels = { breach: '&#9888; Breach Checker', password: '&#128273; Password Health', ip: '&#127760; IP Investigator', cve: '&#128737; CVE Feed', briefing: '&#129302; AI Briefing', news: '&#128225; Security News', network: '&#128274; Network Monitor' };
-      return '<button onclick="navigateTo(\'' + page + '\')" class="aegis-btn" style="font-size:12px; padding:10px 16px;">' + labels[page] + '</button>';
+
+    ['password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
+      const labels = { password: '&#128273; Password Health', ip: '&#127760; IP Investigator', cve: '&#128737; CVE Feed', briefing: '&#129302; AI Briefing', news: '&#128225; Security News', network: '&#128274; Network Monitor' };
     }).join('') +
     '</div></div>' +
 
@@ -1536,7 +1536,7 @@ async function loadDashboard() {
     (newsData.length > 0 ? newsData.slice(0, 5).map(function(item) {
       const categories = getNewsCategories(item.title);
       const borderColor = categories.length > 0 ? categories[0].color : 'var(--border)';
-      return '<div style="padding:12px 0; border-bottom:1px solid var(--border); border-left:2px solid ' + borderColor + '; padding-left:12px;">' +
+
         '<div style="font-family:var(--font-ui); font-size:14px; color:var(--text-primary); font-weight:600; margin-bottom:4px; line-height:1.4;">' + item.title.slice(0, 80) + (item.title.length > 80 ? '...' : '') + '</div>' +
         '<div style="display:flex; justify-content:space-between;">' +
         '<span style="font-family:var(--font-mono); font-size:11px; color:var(--amber);">&#9658; ' + item.source + '</span>' +
@@ -1558,8 +1558,8 @@ function renderStatCard(label, value, color, icon) {
 
 function calculateThreatLevel(cves) {
   if (cves.length === 0) return 'UNKNOWN';
-  const critical = cves.filter(function(c) { return c.severity === 'CRITICAL'; }).length;
-  const high = cves.filter(function(c) { return c.severity === 'HIGH'; }).length;
+  const critical = cves.filter(function(c) { return c.severity === 'CRITICAL' && new Date(c.published) > new Date('1/1/2020'); }).length;
+  const high = cves.filter(function(c) { return c.severity === 'HIGH' && new Date(c.published) > new Date('1/1/2020'); }).length;
   if (critical >= 3) return 'CRITICAL';
   if (critical >= 1 || high >= 5) return 'HIGH';
   if (high >= 2) return 'ELEVATED';
