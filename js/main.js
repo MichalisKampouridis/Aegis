@@ -1874,7 +1874,7 @@ const KNOWN_SAFE_CIDR = {
   '13.64.0.0/11': 'Microsoft Azure',
   '20.0.0.0/8': 'Microsoft Azure',
   '40.64.0.0/10': 'Microsoft Azure',
-  '52.0.0.0/6': 'Microsoft Azure',
+  '52.224.0.0/11': 'Microsoft Azure',
   '104.40.0.0/13': 'Microsoft Azure',
   '157.54.0.0/15': 'Microsoft',
   '207.46.0.0/16': 'Microsoft',
@@ -1912,3 +1912,44 @@ function isKnownSafe(ip) {
   }
   return null;
 }
+
+
+// Comprehensive Greek IP Ranges
+const GREEK_EXTENDED_CIDRS = {
+  // Universities
+  '147.102.0.0/16': 'University of Athens',
+  '147.27.0.0/16': 'Aristotle University Thessaloniki',
+  '143.233.0.0/16': 'University of Crete',
+  '195.130.64.0/18': 'Technical University of Crete',
+  '160.40.0.0/16': 'NTUA Athens',
+  '155.207.0.0/16': 'University of Patras',
+  '193.93.0.0/16': 'University of Macedonia',
+  '193.140.0.0/16': 'Democritus University',
+  '194.63.0.0/16': 'University of Ioannina',
+  '195.134.64.0/18': 'University of Thessaly',
+  // Government
+  '193.92.0.0/16': 'Greek Government Network',
+  '194.219.0.0/16': 'Greek Government Network',
+  '212.205.32.0/19': 'Greek Ministry of Education',
+  '195.46.224.0/19': 'Greek Parliament',
+  '194.63.224.0/19': 'Greek Police',
+  // Banks
+  '185.47.116.0/22': 'Piraeus Bank Greece',
+  '212.152.160.0/19': 'National Bank of Greece',
+  '194.177.210.0/23': 'Alpha Bank Greece',
+  '195.170.0.0/16': 'Eurobank Greece',
+  // Media
+  '185.6.76.0/22': 'Skroutz',
+  '212.205.128.0/17': 'Greek Media',
+  // More ISPs
+  '185.31.28.0/22': 'Nova Greece',
+  '46.176.0.0/14': 'Forthnet Greece',
+  '188.254.0.0/15': 'Cyta Hellas',
+  '195.74.0.0/16': 'Hellas Online',
+  '62.169.192.0/18': 'GRNET Research',
+  '79.102.0.0/15': 'Cosmote Mobile',
+  '79.166.0.0/15': 'Cosmote Mobile',
+  '94.68.0.0/14': 'Vodafone Mobile Greece',
+  '188.112.0.0/14': 'Wind Mobile Greece'
+};
+Object.assign(KNOWN_SAFE, GREEK_EXTENDED_CIDRS);
