@@ -1,4 +1,4 @@
-﻿* {
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -163,7 +163,7 @@ body {
 
 .status-text {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 15px;
   color: var(--success);
   letter-spacing: 2px;
 }
@@ -296,7 +296,7 @@ body {
   border: 1px solid var(--amber);
   color: var(--amber);
   font-family: var(--font-title);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 2px;
   padding: 14px 28px;
@@ -395,7 +395,7 @@ body {
 
 .result-label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-dim);
   letter-spacing: 2px;
   margin-bottom: 14px;
