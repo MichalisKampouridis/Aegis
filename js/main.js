@@ -1505,8 +1505,8 @@ async function loadDashboard() {
     '<div style="margin-bottom:24px;">' +
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">QUICK ACTIONS</div>' +
     '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
-    ['password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
-      const labels = { password: '&#128273; Password Health', ip: '&#127760; IP Investigator', cve: '&#128737; CVE Feed', briefing: '&#129302; AI Briefing', news: '&#128225; Security News', network: '&#128274; Network Monitor' };
+    ['breach', 'password', 'ip', 'cve', 'briefing', 'news', 'network'].map(function(page) {
+      const labels = { breach: '&#9888; Breach Checker', password: '&#128273; Password Health', ip: '&#127760; IP Investigator', cve: '&#128737; CVE Feed', briefing: '&#129302; AI Briefing', news: '&#128225; Security News', network: '&#128274; Network Monitor' };
       return '<button onclick="navigateTo(\'' + page + '\')" class="aegis-btn" style="font-size:12px; padding:10px 16px;">' + labels[page] + '</button>';
     }).join('') +
     '</div></div>' +
@@ -1620,7 +1620,7 @@ function navigateTo(page) {
   const navItems = document.querySelectorAll('.nav-item');
   const pages = document.querySelectorAll('.page');
   const pageTitle = document.getElementById('page-title');
-  const pageTitles = { dashboard: 'Security Dashboard', password: 'Password Health', ip: 'IP Investigator', cve: 'CVE Threat Feed', briefing: 'AI Briefing', news: 'Security News', network: 'Network Monitor' };
+  const pageTitles = { dashboard: 'Security Dashboard', breach: 'Breach Checker', password: 'Password Health', ip: 'IP Investigator', cve: 'CVE Threat Feed', briefing: 'AI Briefing', news: 'Security News', network: 'Network Monitor' };
   navItems.forEach(function(n) { n.classList.remove('active'); });
   pages.forEach(function(p) { p.classList.remove('active'); });
   const targetNav = document.querySelector('[data-page="' + page + '"]');
