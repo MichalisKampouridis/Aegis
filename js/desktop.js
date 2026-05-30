@@ -205,11 +205,6 @@ async function loadSettings() {
   if (el('setting-notif-cve')) el('setting-notif-cve').checked = notifs.criticalCVE !== false;
   if (el('setting-notif-anomaly')) el('setting-notif-anomaly').checked = notifs.anomaly !== false;
 
-  const sounds = currentSettings.sounds || {};
-  if (el('setting-sound-ui'))       el('setting-sound-ui').checked       = sounds.ui       !== false;
-  if (el('setting-sound-alert'))    el('setting-sound-alert').checked    = sounds.alert    !== false;
-  if (el('setting-sound-briefing')) el('setting-sound-briefing').checked = sounds.briefing !== false;
-
   if (typeof updateSocPresetButtons === 'function') {
     updateSocPresetButtons(currentSettings.socPreset || 'single');
   }
@@ -264,14 +259,6 @@ function saveNotifSetting(key, value) {
   currentSettings.notifications[key] = value;
   if (IS_ELECTRON) {
     window.aegis.setSetting('notifications.' + key, value);
-  }
-}
-
-function saveSoundSetting(key, value) {
-  if (!currentSettings.sounds) currentSettings.sounds = {};
-  currentSettings.sounds[key] = value;
-  if (IS_ELECTRON) {
-    window.aegis.setSetting('sounds.' + key, value);
   }
 }
 
@@ -444,6 +431,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Called after splash screen completes (we hook into loadDashboard)
 const _origLoadDashboard = window.loadDashboard;
 window.loadDashboard = async function() {
+  // Populate currentSettings before UI code runs (notifications, SOC preset, etc.).
+  await loadSettings();
   if (typeof _origLoadDashboard === 'function') {
     await _origLoadDashboard();
   }

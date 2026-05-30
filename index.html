@@ -161,6 +161,7 @@
       <!-- DASHBOARD -->
       <div class="page active" id="page-dashboard">
         <div id="dashboard-content"></div>
+        <div id="threat-heatmap-container"></div>
       </div>
 
       <!-- NETWORK INTELLIGENCE -->
@@ -715,44 +716,6 @@
             </div>
             <label class="toggle-switch">
               <input type="checkbox" id="setting-notif-anomaly" onchange="saveNotifSetting('anomaly', this.checked);">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Sound Settings -->
-        <div class="card">
-          <div class="card-header">SOUND</div>
-
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">UI SOUNDS</div>
-              <div class="settings-desc">Navigation clicks, scan feedback</div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-sound-ui" onchange="saveSoundSetting('ui', this.checked);">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">ALERT SOUNDS</div>
-              <div class="settings-desc">Anomaly alerts, VPN drops, IP changes</div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-sound-alert" onchange="saveSoundSetting('alert', this.checked);">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">BRIEFING SOUNDS</div>
-              <div class="settings-desc">AI briefing start and complete</div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-sound-briefing" onchange="saveSoundSetting('briefing', this.checked);">
               <span class="toggle-slider"></span>
             </label>
           </div>

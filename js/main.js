@@ -2228,6 +2228,139 @@ async function loadDashboard() {
     '</div>';  // close grid
 
   setTimeout(initRadar, 50);
+  loadThreatHeatmap();
+}
+
+// ============================================================
+// THREAT HISTORY HEATMAP
+// ============================================================
+async function loadThreatHeatmap() {
+  var container = document.getElementById('threat-heatmap-container');
+  if (!container) return;
+
+  var readings = [];
+  if (window.aegis && window.aegis.getRadarReadings) {
+    try {
+      readings = await window.aegis.getRadarReadings(1000);
+    } catch (_) {}
+  }
+
+  // Group readings by local calendar day
+  var dayMap = {};
+  var levelRank = { 'LOW': 0, 'ELEVATED': 1, 'HIGH': 2 };
+  readings.forEach(function(r) {
+    if (!r.ts) return;
+    var d = new Date(r.ts);
+    var key = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+    if (!dayMap[key]) dayMap[key] = { worstLevel: 'LOW', anomalyCount: 0 };
+    var level = 'LOW';
+    if (r.latency > 300 || r.ipChanged || r.vpnDropped) level = 'HIGH';
+    else if (r.latency > 150) level = 'ELEVATED';
+    if (levelRank[level] > levelRank[dayMap[key].worstLevel]) dayMap[key].worstLevel = level;
+    if (level !== 'LOW') dayMap[key].anomalyCount++;
+  });
+
+  // Last 30 days: index 0 = oldest, index 29 = today
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var days = [];
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(today);
+    d.setDate(today.getDate() - i);
+    var key = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+    days.push({ date: d, key: key, data: dayMap[key] || null, isToday: i === 0 });
+  }
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function squareColor(day) {
+    if (!day.data) return '#1e2d4a';
+    if (day.data.worstLevel === 'HIGH') return '#ef4444';
+    if (day.data.worstLevel === 'ELEVATED') return '#f59e0b';
+    return '#10b981';
+  }
+
+  // 30 squares — 28px wide, 4px gap → stride 32px
+  var squaresHTML = '';
+  days.forEach(function(day) {
+    var color = squareColor(day);
+    var border = day.isToday
+      ? 'outline:2px solid #f59e0b;outline-offset:1px;'
+      : 'border:1px solid rgba(255,255,255,0.06);';
+    var dateText = MONTHS[day.date.getMonth()] + ' ' + day.date.getDate();
+    var levelText = day.data ? day.data.worstLevel : 'NO DATA';
+    var anomalies = day.data ? day.data.anomalyCount : 0;
+    squaresHTML +=
+      '<div class="hm-sq"' +
+      ' style="width:28px;height:28px;border-radius:3px;background:' + color + ';' + border + 'cursor:default;flex-shrink:0;"' +
+      ' data-date="' + dateText + '" data-level="' + levelText + '" data-anomalies="' + anomalies + '">' +
+      '</div>';
+  });
+
+  // Date labels at every 5th index + today
+  var labelsHTML = '<div style="position:relative;height:20px;margin-top:6px;">';
+  days.forEach(function(day, i) {
+    if (i % 5 === 0 || i === 29) {
+      var dateText = MONTHS[day.date.getMonth()] + ' ' + day.date.getDate();
+      labelsHTML +=
+        '<span style="position:absolute;left:' + (i * 32) + 'px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:#64748b;white-space:nowrap;">' +
+        dateText + '</span>';
+    }
+  });
+  labelsHTML += '</div>';
+
+  container.innerHTML =
+    '<div style="background:#060d1f;border:1px solid #1e2d4a;border-top:2px solid #f59e0b;border-radius:4px;padding:20px 24px;margin-top:24px;">' +
+    '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#f59e0b;letter-spacing:3px;margin-bottom:16px;">THREAT HISTORY — LAST 30 DAYS</div>' +
+    '<div style="display:flex;gap:4px;">' + squaresHTML + '</div>' +
+    labelsHTML +
+    '<div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">' +
+    '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:#64748b;letter-spacing:1px;">LEGEND:</span>' +
+    '<span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;"></span><span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:#64748b;">LOW</span></span>' +
+    '<span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:2px;"></span><span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:#64748b;">ELEVATED</span></span>' +
+    '<span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:2px;"></span><span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:#64748b;">HIGH / CRITICAL</span></span>' +
+    '<span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#1e2d4a;border:1px solid rgba(255,255,255,0.1);border-radius:2px;"></span><span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:#64748b;">NO DATA</span></span>' +
+    '</div>' +
+    '</div>';
+
+  // Floating tooltip — create once, reuse across re-renders
+  var tip = document.getElementById('heatmap-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'heatmap-tip';
+    tip.style.cssText =
+      'position:fixed;background:#060d1f;border:1px solid #f59e0b;border-radius:3px;' +
+      'padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#e2e8f0;' +
+      'pointer-events:none;z-index:9999;display:none;line-height:1.7;box-shadow:0 4px 16px rgba(0,0,0,0.6);';
+    document.body.appendChild(tip);
+  }
+
+  container.querySelectorAll('.hm-sq').forEach(function(sq) {
+    sq.addEventListener('mouseenter', function(e) {
+      var date    = sq.getAttribute('data-date');
+      var level   = sq.getAttribute('data-level');
+      var anomaly = sq.getAttribute('data-anomalies');
+      var lc = level === 'HIGH' ? '#ef4444' : level === 'ELEVATED' ? '#f59e0b' : level === 'LOW' ? '#10b981' : '#64748b';
+      tip.innerHTML =
+        '<div style="color:#f59e0b;margin-bottom:4px;font-size:11px;letter-spacing:1px;">' + date + '</div>' +
+        '<div>THREAT: <span style="color:' + lc + ';font-weight:bold;">' + level + '</span></div>' +
+        '<div style="color:#94a3b8;">ANOMALIES: <span style="color:#e2e8f0;">' + anomaly + '</span></div>';
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 10) + 'px';
+    });
+    sq.addEventListener('mousemove', function(e) {
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 10) + 'px';
+    });
+    sq.addEventListener('mouseleave', function() {
+      tip.style.display = 'none';
+    });
+  });
 }
 
 function renderStatCard(label, value, color, icon) {
