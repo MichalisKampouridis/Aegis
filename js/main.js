@@ -1,7 +1,250 @@
 let allCVEs = [];
+let currentPageId = 'dashboard';
 
-// SPLASH SCREEN
+// ─── MULTI-WINDOW RENDERER ────────────────────────────────────
+const SOC_PRESET_DESCS = {
+  single: 'SINGLE MONITOR — Main window maximized on primary display.',
+  dual:   'DUAL MONITOR — Dashboard on primary · Network Intelligence on secondary.',
+  triple: 'TRIPLE MONITOR — Dashboard · Network Intelligence · Network Monitor.'
+};
+
+function setSocPreset(preset) {
+  if (window.aegis && window.aegis.setSocPreset) window.aegis.setSocPreset(preset);
+  if (typeof saveSetting === 'function') saveSetting('socPreset', preset);
+  updateSocPresetButtons(preset);
+}
+
+function updateSocPresetButtons(preset) {
+  ['single', 'dual', 'triple'].forEach(function(p) {
+    const btn = document.getElementById('soc-preset-' + p);
+    if (!btn) return;
+    if (p === preset) {
+      btn.style.background = '#f59e0b';
+      btn.style.color      = '#020818';
+      btn.style.borderColor = '#f59e0b';
+    } else {
+      btn.style.background  = 'transparent';
+      btn.style.color       = '#f59e0b';
+      btn.style.borderColor = '#f59e0b';
+    }
+  });
+  const desc = document.getElementById('soc-preset-desc');
+  if (desc) desc.textContent = SOC_PRESET_DESCS[preset] || '';
+}
+
+function detachCurrentPage() {
+  if (!window.aegis || !window.aegis.openDetachedWindow) return;
+  window.aegis.openDetachedWindow(currentPageId);
+}
+
+async function initMiniRadarWidget() {
+  document.body.innerHTML =
+    '<div style="background:#020818; width:320px; height:380px; display:flex; flex-direction:column; overflow:hidden; user-select:none; -webkit-user-select:none;">' +
+      '<div style="-webkit-app-region:drag; background:#060d1f; border-bottom:1px solid #1e2d4a; height:32px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; flex-shrink:0;">' +
+        '<span style="font-family:Orbitron,sans-serif; font-size:10px; color:#f59e0b; letter-spacing:3px; font-weight:700;">◎ AEGIS RADAR</span>' +
+        '<button onclick="if(window.aegis)window.aegis.close()" style="-webkit-app-region:no-drag; background:transparent; border:1px solid rgba(239,68,68,0.6); color:#ef4444; width:22px; height:22px; border-radius:2px; cursor:pointer; font-size:13px; line-height:1; padding:0;">✕</button>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; justify-content:center; flex:1; background:#020818;">' +
+        '<canvas id="radar-canvas" width="220" height="220" style="display:block;"></canvas>' +
+      '</div>' +
+      '<div style="background:#060d1f; border-top:1px solid #1e2d4a; padding:8px 16px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">' +
+        '<span style="font-family:\'IBM Plex Mono\',monospace; font-size:11px; color:#64748b; letter-spacing:1px;">LATENCY <span id="mr-latency" style="color:#f59e0b;">—</span></span>' +
+        '<span style="font-family:\'IBM Plex Mono\',monospace; font-size:11px; color:#64748b; letter-spacing:1px;">THREAT <span id="mr-threat" style="color:#10b981;">LOW</span></span>' +
+      '</div>' +
+    '</div>';
+
+  // Load history from store; set flag so initRadar() won't start sampling
+  if (window.aegis && window.aegis.getRadarReadings) {
+    try {
+      const stored = await window.aegis.getRadarReadings(60);
+      if (stored && stored.length > 0) radarHistory = stored;
+    } catch (_) {}
+  }
+  radarSamplingStarted = true; // read-only window — no new samples
+  await initRadar();
+  updateMiniRadarStats();
+
+  setInterval(async function() {
+    if (window.aegis && window.aegis.getRadarReadings) {
+      try {
+        const fresh = await window.aegis.getRadarReadings(60);
+        if (fresh && fresh.length > 0) radarHistory = fresh;
+      } catch (_) {}
+    }
+    updateMiniRadarStats();
+  }, 30000);
+}
+
+function updateMiniRadarStats() {
+  const latEl    = document.getElementById('mr-latency');
+  const threatEl = document.getElementById('mr-threat');
+  if (!latEl || !threatEl || !radarHistory.length) return;
+  const recent = radarHistory.slice(-10);
+  const lats   = recent.filter(function(r) { return r.latency != null; }).map(function(r) { return r.latency; });
+  const avg    = lats.length ? Math.round(lats.reduce(function(a, b) { return a + b; }, 0) / lats.length) : null;
+  latEl.textContent  = avg != null ? avg + ' ms' : '—';
+  latEl.style.color  = avg == null ? '#64748b' : avg < 100 ? '#10b981' : avg < 300 ? '#f59e0b' : '#ef4444';
+  const latest = radarHistory[radarHistory.length - 1];
+  if (latest) {
+    const hi = latest.latency > 300 || latest.ipChanged || latest.vpnDropped;
+    const md = latest.latency > 150;
+    threatEl.textContent = hi ? 'HIGH' : md ? 'ELEVATED' : 'LOW';
+    threatEl.style.color = hi ? '#ef4444' : md ? '#f59e0b' : '#10b981';
+  }
+}
+
+// ─── SPLASH EFFECTS ───────────────────────────────────────────
+function initSplashEffects() {
+  var running       = true;
+  var forcedIntensity = null;
+
+  // ── Falling data streams ─────────────────────────────────────
+  var sc = document.getElementById('splash-streams');
+  if (!sc) return { stop: function() {}, finalPulse: function(cb) { if (cb) cb(); } };
+  var sctx = sc.getContext('2d');
+  sc.width  = window.innerWidth;
+  sc.height = window.innerHeight;
+
+  var streams = [];
+  for (var i = 0; i < 35; i++) {
+    var len = 30 + Math.random() * 60;
+    streams.push({
+      x:     Math.random() * sc.width,
+      y:     Math.random() * sc.height,
+      speed: 0.3 + Math.random() * 0.7,
+      len:   len,
+      alpha: 0.06 + Math.random() * 0.12
+    });
+  }
+
+  // ── Shield perimeter glow ────────────────────────────────────
+  // Outer polygon: SVG viewBox 60×70, rendered 120×140 (scale 2×), plus
+  // 20 px padding on every side → canvas 160×180, points shifted +20.
+  var gc   = document.getElementById('splash-glow-canvas');
+  var gctx = gc ? gc.getContext('2d') : null;
+  var P    = [[80,24],[136,50],[136,100],[80,156],[24,100],[24,50]];
+
+  function tracePath(ctx) {
+    ctx.beginPath();
+    ctx.moveTo(P[0][0], P[0][1]);
+    for (var k = 1; k < P.length; k++) ctx.lineTo(P[k][0], P[k][1]);
+    ctx.closePath();
+  }
+
+  function drawGlow(intensity) {
+    if (!gctx) return;
+    gctx.clearRect(0, 0, 160, 180);
+
+    // Layer 1 — outer soft halo
+    gctx.save();
+    gctx.shadowBlur  = 14 + intensity * 6;
+    gctx.shadowColor = 'rgba(245,158,11,' + (intensity * 0.45) + ')';
+    gctx.strokeStyle = 'rgba(245,158,11,' + (intensity * 0.20) + ')';
+    gctx.lineWidth   = 6;
+    tracePath(gctx); gctx.stroke();
+    gctx.restore();
+
+    // Layer 2 — mid glow
+    gctx.save();
+    gctx.shadowBlur  = 8 + intensity * 5;
+    gctx.shadowColor = 'rgba(245,158,11,' + (0.30 + intensity * 0.50) + ')';
+    gctx.strokeStyle = 'rgba(245,158,11,' + (0.30 + intensity * 0.45) + ')';
+    gctx.lineWidth   = 3;
+    tracePath(gctx); gctx.stroke();
+    gctx.restore();
+
+    // Layer 3 — inner sharp edge
+    gctx.save();
+    gctx.shadowBlur  = 3 + intensity * 3;
+    gctx.shadowColor = 'rgba(245,158,11,' + (0.60 + intensity * 0.40) + ')';
+    gctx.strokeStyle = 'rgba(245,158,11,' + (0.70 + intensity * 0.30) + ')';
+    gctx.lineWidth   = 1.5;
+    tracePath(gctx); gctx.stroke();
+    gctx.restore();
+  }
+
+  // ── Animation loop ───────────────────────────────────────────
+  function tick(t) {
+    if (!running) return;
+
+    // Data streams
+    sctx.clearRect(0, 0, sc.width, sc.height);
+    for (var s = 0; s < streams.length; s++) {
+      var st   = streams[s];
+      var grad = sctx.createLinearGradient(st.x, st.y - st.len, st.x, st.y);
+      grad.addColorStop(0, 'rgba(245,158,11,0)');
+      grad.addColorStop(1, 'rgba(245,158,11,' + st.alpha + ')');
+      sctx.strokeStyle = grad;
+      sctx.lineWidth   = 1;
+      sctx.beginPath();
+      sctx.moveTo(st.x, st.y - st.len);
+      sctx.lineTo(st.x, st.y);
+      sctx.stroke();
+      st.y += st.speed;
+      if (st.y - st.len > sc.height) {
+        st.y = -st.len;
+        st.x = Math.random() * sc.width;
+      }
+    }
+
+    // Shield glow — sine-wave breathing (period 2 s) or forced intensity
+    var intensity;
+    if (forcedIntensity !== null) {
+      intensity = forcedIntensity;
+    } else {
+      var phase = (t % 2000) / 2000 * Math.PI * 2;
+      intensity = 0.5 + 0.5 * Math.sin(phase);
+    }
+    drawGlow(intensity);
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+
+  return {
+    stop: function() { running = false; },
+    finalPulse: function(callback) {
+      // Hold full brightness for 400 ms (the "final burst"), then invoke callback
+      forcedIntensity = 1.0;
+      setTimeout(function() {
+        forcedIntensity = null;
+        if (callback) callback();
+      }, 400);
+    }
+  };
+}
+
+// ─── SPLASH SCREEN ────────────────────────────────────────────
 function runSplash() {
+  // Detect URL parameter — used by detached and mini-radar windows only.
+  // Main window loads via loadFile() with no query string, so startPage is
+  // null here and the splash always runs for the main window.
+  const startPage = new URLSearchParams(window.location.search).get('page');
+
+  // Mini-radar detached window
+  if (startPage === 'mini-radar') {
+    const splash = document.getElementById('splash-screen');
+    if (splash) splash.style.display = 'none';
+    initMiniRadarWidget();
+    return;
+  }
+
+  // Any other detached page window — skip splash and navigate directly.
+  // Guard: only when the parameter is explicitly set to a non-empty value.
+  if (startPage !== null && startPage !== '') {
+    const splash = document.getElementById('splash-screen');
+    if (splash) splash.style.display = 'none';
+    loadDashboard();
+    setTimeout(function() {
+      navigateTo(startPage);
+      if (startPage === 'network-intelligence') setTimeout(initNetworkIntelligence, 150);
+    }, 150);
+    return;
+  }
+
+  // No page parameter (or empty) → main window startup: always show full splash.
+
   const messages = [
     'LOADING SECURITY MODULES...',
     'CONNECTING TO THREAT FEEDS...',
@@ -13,6 +256,7 @@ function runSplash() {
   const status = document.getElementById('splash-status');
   const splash = document.getElementById('splash-screen');
   if (!splash) return;
+  var fx = initSplashEffects();
   let step = 0;
   const interval = setInterval(function() {
     if (step < messages.length) {
@@ -21,19 +265,23 @@ function runSplash() {
       step++;
     } else {
       clearInterval(interval);
-      splash.style.transition = 'opacity 0.8s ease';
-      splash.style.opacity = '0';
-      setTimeout(function() {
-        splash.style.display = 'none';
-        loadDashboard();
-      }, 800);
+      fx.finalPulse(function() {
+        splash.style.transition = 'opacity 1s ease';
+        splash.style.opacity = '0';
+        setTimeout(function() {
+          fx.stop();
+          splash.style.display = 'none';
+          loadDashboard();
+        }, 1000);
+      });
     }
   }, 500);
 }
 
-window.addEventListener('load', function() {
-  runSplash();
-});
+// Script is at the bottom of <body> so the DOM is ready immediately.
+// Don't wait for window.load (which waits for external fonts/images
+// and can hang indefinitely), call runSplash right away.
+runSplash();
 
 // ============================================================
 // AEGIS � PERSONAL SECURITY INTELLIGENCE DASHBOARD
@@ -47,19 +295,24 @@ const pageTitle = document.getElementById('page-title');
 
 const pageTitles = {
   dashboard: 'Security Dashboard',
+  'network-intelligence': 'Network Intelligence',
   password: 'Password Health',
   ip: 'IP Investigator',
   cve: 'CVE Threat Feed',
   briefing: 'AI Briefing',
   news: 'Security News',
   network: 'Network Monitor',
+  'security-toolkit': 'Security Toolkit',
+  'network-toolkit': 'Network Toolkit',
   settings: 'Settings'
 };
 
 navItems.forEach(item => {
   item.addEventListener('click', (e) => {
     e.preventDefault();
+    if (typeof playNavClick === 'function' && isSoundEnabled('ui')) playNavClick();
     const target = item.dataset.page;
+    currentPageId = target;
     navItems.forEach(n => n.classList.remove('active'));
     pages.forEach(p => p.classList.remove('active'));
     item.classList.add('active');
@@ -490,7 +743,7 @@ function copyIPReport() {
       btn.textContent = '? COPIED';
       btn.style.color = '#10b981';
       btn.style.borderColor = '#10b981';
-      setTimeout(function() { btn.textContent = '? COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+      setTimeout(function() { btn.textContent = 'COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
     }
   });
 }
@@ -547,8 +800,13 @@ async function investigateIP() {
     const ipResponse = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://ipwho.is/' + targetIP));
     const d = await ipResponse.json();
 
-    if (d.status === 'fail') {
-      resultDiv.innerHTML = '<p class="placeholder-text">Error: ' + d.message + '</p>';
+    if (d.status === 'fail' || d.success === false) {
+      resultDiv.innerHTML =
+        '<div style="border:1px solid #ef4444; border-left:3px solid #ef4444; border-radius:3px; padding:20px; background:rgba(239,68,68,0.08); font-family:var(--font-mono); font-size:13px; color:#ef4444; line-height:1.8;">' +
+        '<div style="font-size:15px; font-weight:bold; margin-bottom:10px;">&#9888; UNABLE TO RESOLVE</div>' +
+        'No geolocation data found for this address. Please check the domain or IP and try again.' +
+        (d.message ? '<div style="margin-top:8px; color:var(--text-dim);">Detail: ' + d.message + '</div>' : '') +
+        '</div>';
       return;
     }
 
@@ -598,6 +856,7 @@ async function investigateIP() {
 
     const barWidth = knownSafeLabel ? 0 : Math.min(threatScore, 100);
     const flag = countryCodeToFlag(d.countryCode);
+    const hasValidCoords = (d.lat !== 0 || d.lon !== 0) && d.lat != null && d.lon != null;
     addToHistory(d.query, threat, threatColor);
 
     resultDiv.innerHTML =
@@ -628,7 +887,10 @@ async function investigateIP() {
 
       '<div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">' +
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">GEOLOCATION MAP</div>' +
-      '<iframe width="100%" height="320" frameborder="0" scrolling="no" style="border-radius:3px; border:1px solid var(--border); filter:grayscale(0.3) invert(0.9) hue-rotate(180deg);" src="https://www.openstreetmap.org/export/embed.html?bbox=' + (d.lon-2) + ',' + (d.lat-2) + ',' + (d.lon+2) + ',' + (d.lat+2) + '&layer=mapnik&marker=' + d.lat + ',' + d.lon + '"></iframe>' +
+      (hasValidCoords
+        ? '<iframe width="100%" height="320" frameborder="0" scrolling="no" style="border-radius:3px; border:1px solid var(--border); filter:grayscale(0.3) invert(0.9) hue-rotate(180deg);" src="https://www.openstreetmap.org/export/embed.html?bbox=' + (d.lon-2) + ',' + (d.lat-2) + ',' + (d.lon+2) + ',' + (d.lat+2) + '&layer=mapnik&marker=' + d.lat + ',' + d.lon + '"></iframe>'
+        : '<div style="border:1px solid #f59e0b; border-left:3px solid #ef4444; border-radius:3px; padding:16px; background:rgba(239,68,68,0.08); font-family:var(--font-mono); font-size:13px; color:#ef4444; line-height:1.8;">Unable to resolve — no geolocation data found for this address. Please check the domain or IP and try again.</div>'
+      ) +
       '</div></div>' +
       '<div class="result-label" style="margin-top:10px;">Data sourced from ip-api.com � Threat scoring by Aegis Intelligence Engine � ' + new Date().toUTCString() + '</div>';
 
@@ -727,7 +989,12 @@ const CVE_KEYWORDS = ["windows","linux","apache","chrome","firefox","android","i
   return { id, desc, published, modified, severity, score, references, hasKeyword, matchedKeywords };
 }
 
+// Cache CVE feed data so the CVE Explainer can pass it to Claude,
+// enabling explanation of recent CVEs beyond its training cutoff.
+window._cveFeedCache = window._cveFeedCache || {};
+
 function renderCVECard(cve, expanded) {
+  window._cveFeedCache[cve.id] = cve;
   const color = getSeverityColor(cve.severity);
   const bg = getSeverityBg(cve.severity);
   const scoreDisplay = cve.score !== null ? cve.score.toFixed(1) : 'N/A';
@@ -744,9 +1011,10 @@ function renderCVECard(cve, expanded) {
     '<div style="font-family:var(--font-title); font-size:18px; color:' + color + ';">' + scoreDisplay + '</div>' +
     '</div>' +
     '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
-    '<button onclick="copyCVEId(\'' + cve.id + '\')" id="copy-cve-' + cve.id + '" class="aegis-btn" style="font-size:11px; padding:6px 12px;">? COPY ID</button>' +
+    '<button onclick="copyCVEId(\'' + cve.id + '\')" id="copy-cve-' + cve.id + '" class="aegis-btn" style="font-size:11px; padding:6px 12px;">COPY ID</button>' +
     '<a href="https://nvd.nist.gov/vuln/detail/' + cve.id + '" target="_blank" class="aegis-btn" style="font-size:11px; padding:6px 12px; text-decoration:none; border-color:#a78bfa; color:#a78bfa;">? NVD</a>' +
-    '<button onclick="toggleCVEExpand(\'' + cve.id + '\')" class="aegis-btn" style="font-size:11px; padding:6px 12px; border-color:#1e2d4a; color:#64748b;">' + (expanded ? '^ LESS' : '� MORE') + '</button>' +
+    '<button onclick="toggleCVEExpand(\'' + cve.id + '\')" class="aegis-btn" style="font-size:11px; padding:6px 12px; border-color:#1e2d4a; color:#64748b;">' + (expanded ? '^ LESS' : '&#9660; MORE') + '</button>' +
+    '<button onclick="openCVEModal(\'' + cve.id + '\')" class="aegis-btn" style="font-size:11px; padding:6px 12px; border-color:#f59e0b; color:#f59e0b;">&#9889; EXPLAIN</button>' +
     '</div></div>' +
     (cve.hasKeyword && cve.matchedKeywords.length > 0 ? '<div style="margin-bottom:10px;">' + keywordBadges + '</div>' : '') +
     '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:1.7; margin-bottom:10px;">' + (expanded ? cve.desc : shortDesc) + '</div>' +
@@ -762,9 +1030,130 @@ function copyCVEId(id) {
       btn.textContent = '? COPIED';
       btn.style.color = '#10b981';
       btn.style.borderColor = '#10b981';
-      setTimeout(function() { btn.textContent = '? COPY ID'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+      setTimeout(function() { btn.textContent = 'COPY ID'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
     }
   });
+}
+
+// ── CVE MODAL ────────────────────────────────────────────────
+// Opens a modal overlay directly on the CVE Feed page — no navigation,
+// no timers, no race conditions. Shows NVD data immediately then calls
+// Claude with description-only prompt to avoid training-data refusals.
+const CVE_MODAL_PROXY = 'https://aegis-proxy.ka-mixalis99.workers.dev/?url=';
+
+function openCVEModal(cveId) {
+  const cveData = window._cveFeedCache && window._cveFeedCache[cveId];
+  if (!cveData) return;
+
+  const sevColors = { CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#f59e0b', LOW: '#84cc16' };
+  const sevColor  = sevColors[cveData.severity] || '#64748b';
+  const scoreStr  = cveData.score != null ? cveData.score.toFixed(1) : 'N/A';
+
+  // Reuse or create the overlay element
+  var overlay = document.getElementById('cve-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'cve-modal-overlay';
+    overlay.style.cssText =
+      'position:fixed; top:0; left:0; width:100%; height:100%;' +
+      'background:rgba(2,8,24,0.92); z-index:8000;' +
+      'display:flex; align-items:center; justify-content:center;' +
+      'padding:20px; box-sizing:border-box;';
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeCVEModal();
+    });
+    document.body.appendChild(overlay);
+  }
+
+  overlay.style.display = 'flex';
+  overlay.innerHTML =
+    '<div onclick="event.stopPropagation()" style="' +
+      'background:#060d1f; border:1px solid #1e2d4a;' +
+      'border-top:3px solid ' + sevColor + ';' +
+      'border-radius:4px; width:700px; max-width:100%;' +
+      'max-height:85vh; overflow-y:auto; padding:28px; position:relative;">' +
+
+    // Header
+    '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:20px; flex-wrap:wrap;">' +
+    '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+    '<div style="font-family:var(--font-title); font-size:16px; color:var(--amber); letter-spacing:2px;">' + cveId + '</div>' +
+    '<div style="background:' + sevColor + '; color:#020818; font-family:var(--font-mono); font-size:11px; font-weight:bold; padding:3px 12px; border-radius:2px;">' + (cveData.severity || 'UNKNOWN') + '</div>' +
+    '<div style="border:1px solid ' + sevColor + '; color:' + sevColor + '; font-family:var(--font-mono); font-size:11px; font-weight:bold; padding:3px 12px; border-radius:2px;">CVSS ' + scoreStr + '</div>' +
+    '</div>' +
+    '<button onclick="closeCVEModal()" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-mono); font-size:12px; padding:5px 14px; border-radius:2px; cursor:pointer; white-space:nowrap; flex-shrink:0; letter-spacing:1px;">&#10005; CLOSE</button>' +
+    '</div>' +
+
+    // NVD description
+    '<div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">&#9673; NVD DESCRIPTION · NIST NATIONAL VULNERABILITY DATABASE</div>' +
+    '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-primary); line-height:1.8; padding:14px; background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + sevColor + '; border-radius:3px; margin-bottom:12px;">' +
+    cveData.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+    '</div>' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:20px;">PUBLISHED: ' + (cveData.published || '—') + ' &nbsp;|&nbsp; MODIFIED: ' + (cveData.modified || '—') + '</div>' +
+
+    // AI analysis section
+    '<div style="border-top:1px solid var(--border); padding-top:20px;">' +
+    '<div style="font-family:var(--font-mono); font-size:10px; color:#a78bfa; letter-spacing:2px; margin-bottom:14px;">&#9889; AI TECHNICAL ANALYSIS · CLAUDE SONNET</div>' +
+    '<div id="cve-modal-ai-body">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; animation:blink 1s infinite;">GENERATING ANALYSIS...</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  // ESC to close
+  document.addEventListener('keydown', cveModalKeyHandler);
+
+  // Call Claude with description only — no CVE ID in prompt
+  cveModalFetchAnalysis(cveData.desc);
+}
+
+function cveModalKeyHandler(e) {
+  if (e.key === 'Escape') closeCVEModal();
+}
+
+function closeCVEModal() {
+  var overlay = document.getElementById('cve-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.removeEventListener('keydown', cveModalKeyHandler);
+}
+
+async function cveModalFetchAnalysis(desc) {
+  var aiBody = document.getElementById('cve-modal-ai-body');
+  if (!aiBody) return;
+
+  var prompt =
+    'A vulnerability has been described as follows: ' + desc + '. ' +
+    'Explain: 1) What type of vulnerability this is, 2) How the attack works, ' +
+    '3) What systems are at risk, 4) Real-world impact, 5) Remediation steps. ' +
+    'Be direct and technical.';
+
+  try {
+    var resp = await fetch(CVE_MODAL_PROXY + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    var data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+
+    var aiBody2 = document.getElementById('cve-modal-ai-body');
+    if (aiBody2) {
+      aiBody2.innerHTML =
+        '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-primary); line-height:1.8;">' +
+        renderBriefingMarkdown(data.content[0].text) +
+        '</div>';
+    }
+  } catch (err) {
+    var aiBody3 = document.getElementById('cve-modal-ai-body');
+    if (aiBody3) {
+      aiBody3.innerHTML =
+        '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; padding:12px; border:1px solid #ef4444; border-radius:3px;">Analysis failed: ' +
+        err.message.replace(/</g,'&lt;') + '</div>';
+    }
+  }
 }
 
 let expandedCVEs = {};
@@ -837,6 +1226,14 @@ function searchCVEs(term) {
 
 
 
+function nvdRecentCVEUrl(days, count) {
+  var now = new Date();
+  var start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  function fmt(d) { return d.toISOString().slice(0, -1); }
+  return 'https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=' + count +
+    '&pubStartDate=' + fmt(start) + '&pubEndDate=' + fmt(now);
+}
+
 async function loadCVEFeed() {
   const resultDiv = document.getElementById('cve-result');
   resultDiv.innerHTML = '<p class="loading">PULLING LATEST CVE DATA FROM NVD...</p>';
@@ -845,13 +1242,15 @@ async function loadCVEFeed() {
   activeSeverityFilter = 'ALL';
   cveSearchTerm = '';
   try {
-    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
+    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent(nvdRecentCVEUrl(30, 20)));
     const data = await response.json();
     if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
       resultDiv.innerHTML = '<p class="placeholder-text">No CVE data available right now. Try again later.</p>';
       return;
     }
-    allCVEs = data.vulnerabilities.reverse().map(extractCVEData);
+    allCVEs = data.vulnerabilities
+      .sort(function(a, b) { return new Date(b.cve.published) - new Date(a.cve.published); })
+      .map(extractCVEData);
     renderCVEList();
   } catch (error) {
     resultDiv.innerHTML = '<p class="placeholder-text">Error loading CVE feed: ' + error.message + '</p>';
@@ -898,16 +1297,95 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 // AI DAILY BRIEFING � FULL EDITION
 // ============================================================
 let briefingHistory = [];
+let briefingAbortController = null;
+
+function stopBriefing() {
+  if (briefingAbortController) {
+    briefingAbortController.abort();
+    briefingAbortController = null;
+  }
+}
+
+function renderBriefingMarkdown(text) {
+  // ── CODE BLOCK PROCESSING (must run first to protect content) ─
+  // Replace fenced code blocks before any other rule touches the text.
+  // Matches ```lang or ``` ... ``` with any internal content.
+  text = text.replace(/```[\w]*\n?([\s\S]*?)```/g, function(_, code) {
+    const escaped = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return '<pre style="background:#060d1f; border-left:3px solid #f59e0b; border-radius:4px; padding:16px; font-family:\'IBM Plex Mono\',monospace; font-size:13px; color:#e2e8f0; overflow-x:auto; white-space:pre; margin:12px 0;"><code>' + escaped + '</code></pre>';
+  });
+  // ── END CODE BLOCK PROCESSING ────────────────────────────────
+
+  // ── TABLE PROCESSING ─────────────────────────────────────────
+  const mdLines = text.split('\n');
+  const mdOut   = [];
+  let mi = 0;
+  while (mi < mdLines.length) {
+    if (/^\s*\|/.test(mdLines[mi])) {
+      const block = [];
+      while (mi < mdLines.length && /^\s*\|/.test(mdLines[mi])) {
+        block.push(mdLines[mi++]);
+      }
+      const sepIdx = block.findIndex(l => /^\s*\|[\s\-:|]+\|/.test(l));
+      if (sepIdx === -1) {
+        mdOut.push(...block);
+      } else {
+        const parseCells = l => l.split('|').slice(1, -1).map(c => c.trim());
+        let tbl = '<table style="width:100%; border-collapse:collapse; margin:12px 0; background:#0a0f1e; border:1px solid rgba(245,158,11,0.2);">';
+        block.slice(0, sepIdx).forEach(function(line) {
+          tbl += '<tr>' + parseCells(line).map(function(c) {
+            return '<th style="font-family:var(--font-mono); font-size:11px; color:var(--amber); padding:7px 10px; border:1px solid rgba(245,158,11,0.25); text-align:left; letter-spacing:1px; background:rgba(245,158,11,0.06);">' + c + '</th>';
+          }).join('') + '</tr>';
+        });
+        block.slice(sepIdx + 1).forEach(function(line, idx) {
+          const bg = idx % 2 === 0 ? 'rgba(13,21,38,0.4)' : 'transparent';
+          tbl += '<tr style="background:' + bg + ';">' + parseCells(line).map(function(c) {
+            return '<td style="font-family:var(--font-mono); font-size:12px; color:var(--text-primary); padding:7px 10px; border:1px solid rgba(30,45,74,0.8);">' + c + '</td>';
+          }).join('') + '</tr>';
+        });
+        tbl += '</table>';
+        mdOut.push(tbl);
+      }
+    } else {
+      mdOut.push(mdLines[mi++]);
+    }
+  }
+  text = mdOut.join('\n');
+  // ── END TABLE PROCESSING ─────────────────────────────────────
+
+  return text
+    // Bold: **text**
+    .replace(/\*\*(.*?)\*\*/g, '<span style="color:var(--amber); font-weight:bold;">$1</span>')
+    // H2: ## Header
+    .replace(/^##\s+(.+)$/gm, '<div style="font-family:var(--font-title); font-size:13px; color:var(--amber); letter-spacing:2px; margin-top:20px; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border);">$1</div>')
+    // H3: ### Header
+    .replace(/^###\s+(.+)$/gm, '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-top:14px; margin-bottom:6px;">$1</div>')
+    // Numbered section labels: 1. ALL CAPS:
+    .replace(/^(\d+\.\s+[A-Z][A-Z\s]+:)/gm, '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-top:16px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--border);">$1</div>')
+    // Bullet points: - item or • item
+    .replace(/^[-•]\s+(.+)$/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">&#9658; $1</div>')
+    // Horizontal rules: --- or *** or ___
+    .replace(/^(---|\*\*\*|___)$/gm, '<hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">')
+    // Paragraph breaks (double newline) → spacer
+    .replace(/\n\n/g, '<div style="height:8px;"></div>')
+    // Single newlines → line break
+    .replace(/\n/g, '<br>');
+}
 
 async function generateBriefing() {
   const resultDiv = document.getElementById('briefing-result');
   const btn = document.getElementById('briefing-btn');
+  const stopBtn = document.getElementById('briefing-stop-btn');
   const style = document.getElementById('briefing-style').value;
   const focus = document.getElementById('briefing-focus').value.trim();
 
   btn.textContent = 'ANALYZING...';
   btn.style.opacity = '0.6';
   btn.disabled = true;
+  if (stopBtn) { stopBtn.style.display = 'inline-block'; }
 
   resultDiv.innerHTML =
     '<div style="text-align:center; padding:40px;">' +
@@ -917,6 +1395,8 @@ async function generateBriefing() {
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">ENGAGING AI ANALYST...</div>' +
     '<div style="width:200px; height:4px; background:var(--bg-secondary); border-radius:2px; margin:16px auto;"><div style="height:4px; background:var(--amber); border-radius:2px; animation:loadingBar 2s ease-in-out infinite;"></div></div>' +
     '</div>';
+
+  if (typeof playBriefingStart === 'function' && isSoundEnabled('briefing')) playBriefingStart();
 
   // Add loading bar animation to CSS
   const style_el = document.createElement('style');
@@ -944,7 +1424,10 @@ async function generateBriefing() {
 
   const focusInstruction = focus ? 'Pay special attention to: ' + focus + '.' : '';
 
-  const prompt = 'You are a cybersecurity intelligence analyst for Aegis Security Dashboard. ' +
+  const nowDate = new Date();
+  const dateStr = nowDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) +
+    ' ' + nowDate.getUTCHours().toString().padStart(2, '0') + ':' + nowDate.getUTCMinutes().toString().padStart(2, '0') + ' UTC';
+  const prompt = 'You are a cybersecurity intelligence analyst for Aegis Security Dashboard. Today\'s date is ' + dateStr + '. ' +
     stylePrompts[style] + ' ' + focusInstruction + '\n\n' +
     'Based on the following threat data, generate a professional intelligence briefing:\n\n' +
     cveContext + '\n\n' +
@@ -957,13 +1440,17 @@ async function generateBriefing() {
     '6. ANALYST NOTE: (one final insight or warning)\n\n' +
     'Keep the total briefing under 500 words. Write in a professional, authoritative tone.';
 
+  briefingAbortController = new AbortController();
   try {
     const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
-      })
+      }),
+      signal: briefingAbortController.signal
     });
 
     const data = await response.json();
@@ -975,27 +1462,17 @@ async function generateBriefing() {
     const briefingText = data.content[0].text;
     const timestamp = new Date().toUTCString();
 
-    // Parse threat level
+    // Parse threat level using case-insensitive regex
     let threatLevel = 'ELEVATED';
     let threatLevelColor = '#f59e0b';
-    if (briefingText.includes('THREAT LEVEL: CRITICAL') || briefingText.includes('THREAT LEVEL:CRITICAL')) {
-      threatLevel = 'CRITICAL'; threatLevelColor = '#ef4444';
-    } else if (briefingText.includes('THREAT LEVEL: HIGH') || briefingText.includes('THREAT LEVEL:HIGH')) {
-      threatLevel = 'HIGH'; threatLevelColor = '#f97316';
-    } else if (briefingText.includes('THREAT LEVEL: LOW') || briefingText.includes('THREAT LEVEL:LOW')) {
-      threatLevel = 'LOW'; threatLevelColor = '#84cc16';
-    } else if (briefingText.includes('THREAT LEVEL: ELEVATED') || briefingText.includes('THREAT LEVEL:ELEVATED')) {
-      threatLevel = 'ELEVATED'; threatLevelColor = '#f59e0b';
-    }
+    if (/THREAT LEVEL:?\s*CRITICAL/i.test(briefingText)) { threatLevel = 'CRITICAL'; threatLevelColor = '#ef4444'; }
+    else if (/THREAT LEVEL:?\s*HIGH/i.test(briefingText)) { threatLevel = 'HIGH'; threatLevelColor = '#f97316'; }
+    else if (/THREAT LEVEL:?\s*LOW/i.test(briefingText)) { threatLevel = 'LOW'; threatLevelColor = '#84cc16'; }
+    else if (/THREAT LEVEL:?\s*ELEVATED/i.test(briefingText)) { threatLevel = 'ELEVATED'; threatLevelColor = '#f59e0b'; }
 
-    // Format briefing text
-    const formattedText = briefingText
-      .replace(/\*\*(.*?)\*\*/g, '<span style="color:var(--amber); font-weight:bold;">$1</span>')
-      .replace(/^(\d+\.\s+[A-Z\s]+:)/gm, '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-top:16px; margin-bottom:8px;">$1</div>')
-      .replace(/^[-�]\s+(.*?)$/gm, '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:6px; padding-left:12px;">&#9658; $1</div>')
-      .replace(/\n/g, ' ');
+    const formattedText = renderBriefingMarkdown(briefingText);
 
-    const briefingHTML =
+    resultDiv.innerHTML =
       '<div id="briefing-report" style="background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:28px; position:relative;">' +
       '<div style="position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(to right, transparent, ' + threatLevelColor + ', transparent);"></div>' +
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:12px;">' +
@@ -1005,33 +1482,37 @@ async function generateBriefing() {
       '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">Style: ' + style.toUpperCase() + (focus ? ' | Focus: ' + focus : '') + '</div>' +
       '</div>' +
       '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">' +
-      '<div style="background:' + threatLevelColor + '; color:#020818; font-family:var(--font-title); font-size:13px; font-weight:900; padding:8px 20px; border-radius:3px; letter-spacing:2px;">? ' + threatLevel + '</div>' +
+      '<div style="background:' + threatLevelColor + '; color:#020818; font-family:var(--font-title); font-size:13px; font-weight:900; padding:8px 20px; border-radius:3px; letter-spacing:2px;">&#9888; ' + threatLevel + '</div>' +
       '<div style="display:flex; gap:8px;">' +
-      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">&#9138; COPY</button>' +
-      '<button onclick="exportBriefingPDF()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">? PDF</button>' +
+      '<button onclick="copyBriefing()" class="aegis-btn" style="font-size:11px; padding:6px 14px;">COPY</button>' +
+      '<button onclick="exportBriefingPDF()" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#a78bfa; color:#a78bfa;">&#11015; PDF</button>' +
       '</div></div></div>' +
       '<div style="font-family:var(--font-mono); font-size:14px; color:var(--text-primary); line-height:1.8; border-top:1px solid var(--border); padding-top:20px;">' +
       formattedText +
       '</div></div>';
 
-    resultDiv.innerHTML = briefingHTML;
-
-    // Add to history
     briefingHistory.unshift({ timestamp, threatLevel, threatLevelColor, style, focus, text: briefingText });
     if (briefingHistory.length > 3) briefingHistory.pop();
     renderBriefingHistory();
+    if (typeof playBriefingComplete === 'function' && isSoundEnabled('briefing')) playBriefingComplete();
 
   } catch (error) {
-    resultDiv.innerHTML =
-      '<div class="breach-card" style="border-left-color:#ef4444;">' +
-      '<div class="breach-name" style="color:#ef4444;">BRIEFING GENERATION FAILED</div>' +
-      '<div class="breach-detail" style="margin-top:8px;">Error: ' + error.message + '<br><br>The AI Briefing feature requires the Anthropic API. This will work fully when Aegis is deployed to GitHub Pages.</div>' +
-      '</div>';
+    if (error.name === 'AbortError') {
+      resultDiv.innerHTML = '<p class="placeholder-text">Briefing generation cancelled.</p>';
+    } else {
+      resultDiv.innerHTML =
+        '<div class="breach-card" style="border-left-color:#ef4444;">' +
+        '<div class="breach-name" style="color:#ef4444;">BRIEFING GENERATION FAILED</div>' +
+        '<div class="breach-detail" style="margin-top:8px;">Error: ' + error.message + '</div>' +
+        '</div>';
+    }
   }
 
-  btn.textContent = '? GENERATE BRIEFING';
+  briefingAbortController = null;
+  btn.textContent = '&#9889; GENERATE BRIEFING';
   btn.style.opacity = '1';
   btn.disabled = false;
+  if (stopBtn) stopBtn.style.display = 'none';
 }
 
 function copyBriefing() {
@@ -1042,7 +1523,7 @@ function copyBriefing() {
     btn.textContent = '? COPIED';
     btn.style.color = '#10b981';
     btn.style.borderColor = '#10b981';
-    setTimeout(function() { btn.textContent = '? COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+    setTimeout(function() { btn.textContent = 'COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
   });
 }
 
@@ -1053,6 +1534,22 @@ function exportBriefingPDF() {
   printWindow.document.write('<html><head><title>Aegis Intelligence Briefing</title><style>body{background:#020818;color:#e2e8f0;font-family:Courier New,monospace;padding:40px;}h1{color:#f59e0b;font-size:20px;letter-spacing:4px;border-bottom:1px solid #f59e0b;padding-bottom:12px;margin-bottom:24px;}.footer{margin-top:40px;border-top:1px solid #1e2d4a;padding-top:12px;color:#64748b;font-size:11px;}</style></head><body><h1>AEGIS INTELLIGENCE BRIEFING</h1><div>' + report.innerText.replace(/\n/g, '<br>') + '</div><div class="footer">Generated by Aegis Security Intelligence Dashboard</div></body></html>');
   printWindow.document.close();
   setTimeout(function() { printWindow.print(); }, 500);
+}
+
+function stripMarkdownToText(text) {
+  return text
+    .replace(/\[Current Date\]/gi, '')
+    .replace(/\[Date\]/gi, '')
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^[-*•►]\s*/gm, '')
+    .replace(/►/g, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/^--[-]+$/gm, '')
+    .replace(/--+/g, ' ')
+    .replace(/\n+/g, ' ')
+    .trim();
 }
 
 function renderBriefingHistory() {
@@ -1068,9 +1565,45 @@ function renderBriefingHistory() {
       '<div style="background:' + b.threatLevelColor + '; color:#020818; font-family:var(--font-mono); font-size:11px; font-weight:bold; padding:3px 10px; border-radius:2px;">' + b.threatLevel + '</div>' +
       '</div>' +
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Style: ' + b.style.toUpperCase() + (b.focus ? ' | Focus: ' + b.focus : '') + '</div>' +
-      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-primary); margin-top:8px; line-height:1.6;">' + b.text.slice(0, 200) + '...</div>' +
+      '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-primary); margin-top:8px; line-height:1.6;">' + stripMarkdownToText(b.text).slice(0, 200) + '...</div>' +
       '</div>';
   }).join('');
+}
+
+function clearBriefingHistory() {
+  const histDiv = document.getElementById('briefing-history');
+  if (!histDiv) return;
+
+  if (briefingHistory.length === 0) {
+    histDiv.innerHTML = '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); padding:12px 0;">No history to clear.</div>';
+    setTimeout(function() { renderBriefingHistory(); }, 2000);
+    return;
+  }
+
+  histDiv.innerHTML =
+    '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid var(--amber); border-radius:3px; padding:20px;">' +
+    '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-primary); margin-bottom:16px; line-height:1.6;">Are you sure you want to clear all briefing history?<br><span style="color:var(--text-dim);">This cannot be undone.</span></div>' +
+    '<div style="display:flex; gap:10px;">' +
+    '<button onclick="confirmClearBriefings()" class="aegis-btn" style="font-size:12px; padding:8px 20px; border-color:#ef4444; color:#ef4444;">CONFIRM</button>' +
+    '<button onclick="renderBriefingHistory()" class="aegis-btn" style="font-size:12px; padding:8px 20px; border-color:#1e2d4a; color:#64748b;">CANCEL</button>' +
+    '</div></div>';
+}
+
+async function confirmClearBriefings() {
+  const histDiv = document.getElementById('briefing-history');
+  const histSection = document.getElementById('briefing-history-section');
+  try {
+    if (window.aegis) await window.aegis.clearBriefings();
+    briefingHistory = [];
+    histDiv.innerHTML =
+      '<div style="font-family:var(--font-mono); font-size:13px; color:#10b981; padding:14px 0; letter-spacing:1px;">&#10003; Briefing history cleared.</div>';
+    setTimeout(function() {
+      if (histSection) histSection.style.display = 'none';
+    }, 2000);
+  } catch (e) {
+    histDiv.innerHTML = '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; padding:12px 0;">Error clearing history. Please try again.</div>';
+    setTimeout(function() { renderBriefingHistory(); }, 2000);
+  }
 }
 
 // ============================================================
@@ -1119,6 +1652,61 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString();
 }
 
+// ─── NEWS IMAGE HELPERS ───────────────────────────────────────
+function extractNewsImage(item) {
+  if (item.enclosure) {
+    const u = item.enclosure.link || item.enclosure.url || '';
+    if (u && (item.enclosure.type || '').startsWith('image/')) return u;
+    if (u && /\.(jpe?g|png|gif|webp)(\?|$)/i.test(u)) return u;
+  }
+  if (item.thumbnail && typeof item.thumbnail === 'string' && item.thumbnail !== '') return item.thumbnail;
+  if (item['media:thumbnail']) return item['media:thumbnail'];
+  if (item.image && typeof item.image === 'string' && item.image !== '') return item.image;
+  return null;
+}
+
+function newsCategoryIcon(title, desc) {
+  const t = (title + ' ' + (desc || '')).toLowerCase();
+  if (/malware|trojan|worm|spyware/.test(t))         return '☣';
+  if (/ransomware/.test(t))                           return '🔒';
+  if (/critical|zero.day|apt|nation.state/.test(t))  return '💀';
+  if (/breach|leak|expos|stolen/.test(t))             return '⚠';
+  if (/exploit|vulnerability|cve/.test(t))            return '⚡';
+  if (/patch|update|fix/.test(t))                     return '🔧';
+  return '🛡';
+}
+
+function newsThumbHTML(thumbnail, icon, size) {
+  const s   = size || 80;
+  const fs  = Math.round(s * 0.40);
+  const phStyle = 'width:' + s + 'px; height:' + s + 'px; background:#060d1f; ' +
+    'border:1px solid rgba(245,158,11,0.25); border-radius:4px; ' +
+    'display:flex; align-items:center; justify-content:center; ' +
+    'font-size:' + fs + 'px; color:#f59e0b; flex-shrink:0;';
+  if (!thumbnail) {
+    return '<div style="' + phStyle + '">' + icon + '</div>';
+  }
+  return '<img src="' + thumbnail.replace(/"/g, '%22') + '" ' +
+    'data-ph-icon="' + icon + '" data-ph-size="' + s + '" ' +
+    'width="' + s + '" height="' + s + '" ' +
+    'style="object-fit:cover; border-radius:4px; ' +
+    'border:1px solid rgba(245,158,11,0.3); flex-shrink:0; display:block;" ' +
+    'onerror="newsImgError(this)">';
+}
+
+function newsImgError(img) {
+  const icon = img.getAttribute('data-ph-icon') || '🛡';
+  const size = parseInt(img.getAttribute('data-ph-size')) || 80;
+  const fs   = Math.round(size * 0.40);
+  const div  = document.createElement('div');
+  div.style.cssText = 'width:' + size + 'px; height:' + size + 'px; background:#060d1f; ' +
+    'border:1px solid rgba(245,158,11,0.25); border-radius:4px; ' +
+    'display:flex; align-items:center; justify-content:center; ' +
+    'font-size:' + fs + 'px; color:#f59e0b; flex-shrink:0;';
+  div.textContent = icon;
+  img.parentNode.replaceChild(div, img);
+}
+
 let allNews = [];
 let newsSearchTerm = '';
 
@@ -1146,11 +1734,16 @@ function renderNewsList() {
     }).join('');
 
     const borderColor = categories.length > 0 ? categories[0].color : 'var(--border)';
+    const icon  = newsCategoryIcon(item.title, item.description);
+    const thumb = newsThumbHTML(item.thumbnail, icon, 80);
 
     return '<a href="' + item.link + '" target="_blank" style="text-decoration:none;">' +
-      '<div style="background:#0f1a2e; border:1px solid #1e2d4a; border-left:3px solid ' + borderColor + '; border-radius:3px; padding:24px 28px; margin-bottom:16px; transition:all 0.2s; cursor:pointer;" onmouseover="this.style.background=\'var(--bg-secondary)\'; this.style.borderColor=\'var(--amber)\'" onmouseout="this.style.background=\'var(--bg-card)\'; this.style.borderColor=\'var(--border)\'">' +
+      '<div style="background:#0f1a2e; border:1px solid #1e2d4a; border-left:3px solid ' + borderColor + '; border-radius:3px; padding:16px 20px; margin-bottom:16px; transition:all 0.2s; cursor:pointer;" onmouseover="this.style.background=\'#0d1829\'; this.style.borderColor=\'var(--amber)\'" onmouseout="this.style.background=\'#0f1a2e\'; this.style.borderColor=\'#1e2d4a\'">' +
+      '<div style="display:flex; gap:14px; align-items:flex-start;">' +
+      thumb +
+      '<div style="flex:1; min-width:0;">' +
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:12px;">' +
-      '<div style="font-family:var(--font-ui); font-size:16px; color:#cbd5e1; font-weight:600; line-height:1.6; flex:1;">' + item.title + '</div>' +
+      '<div style="font-family:var(--font-ui); font-size:16px; color:#cbd5e1; font-weight:600; line-height:1.5; flex:1;">' + item.title + '</div>' +
       '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); white-space:nowrap;">' + timeAgo(item.pubDate) + '</div>' +
       '</div>' +
       '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">' +
@@ -1158,6 +1751,8 @@ function renderNewsList() {
       categoryBadges +
       '</div>' +
       (item.description ? '<div style="font-family:var(--font-ui); font-size:14px; color:#94a3b8; margin-top:10px; line-height:1.8;">' + item.description.slice(0, 150) + (item.description.length > 150 ? '...' : '') + '</div>' : '') +
+      '</div>' +
+      '</div>' +
       '</div></a>';
   }).join('');
 
@@ -1195,7 +1790,8 @@ async function loadSecurityNews() {
                 link: item.link || '#',
                 pubDate: item.pubDate || new Date().toISOString(),
                 description: item.description ? item.description.replace(/<[^>]*>/g, '').trim() : '',
-                source: feed.source
+                source: feed.source,
+                thumbnail: extractNewsImage(item)
               };
             });
           }
@@ -1245,21 +1841,21 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 // ============================================================
 let networkMonitorInterval = null;
 let lastPublicIP = null;
+let lastPortScanResults = null;
 
 async function runNetworkScan() {
   const resultDiv = document.getElementById('network-result');
   resultDiv.innerHTML = '<p class="loading">SCANNING NETWORK...</p>';
 
-  // Run all checks in parallel
-  const [ipData, webrtcData, latencyData] = await Promise.all([
+  const [ipData, latencyData, portData] = await Promise.all([
     checkPublicIP(),
-    checkWebRTCLeak(),
-    checkLatency()
+    checkLatency(),
+    scanLocalPorts()
   ]);
 
   const dnsData = await checkDNSLeak(ipData);
 
-  renderNetworkResults(ipData, webrtcData, dnsData, latencyData);
+  renderNetworkResults(ipData, dnsData, latencyData, portData);
 
   // Start auto-refresh every 5 minutes
   if (networkMonitorInterval) clearInterval(networkMonitorInterval);
@@ -1296,42 +1892,31 @@ async function checkPublicIP() {
   }
 }
 
-async function checkWebRTCLeak() {
-  return new Promise(function(resolve) {
-    try {
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      const ips = [];
-      pc.createDataChannel('');
-      pc.createOffer().then(function(offer) { return pc.setLocalDescription(offer); });
-      pc.onicecandidate = function(e) {
-        if (!e.candidate) {
-          pc.close();
-          const localIPs = ips.filter(function(ip) {
-            return /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
-          });
-          const publicIPs = ips.filter(function(ip) {
-            return !/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|127\.)/.test(ip);
-          });
-          resolve({ ips: ips, localIPs: localIPs, publicIPs: publicIPs, success: true });
-          return;
-        }
-        const match = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/.exec(e.candidate.candidate);
-        if (match && !ips.includes(match[1])) ips.push(match[1]);
-      };
-      setTimeout(function() {
-        pc.close();
-        const localIPs = ips.filter(function(ip) {
-          return /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
-        });
-        const publicIPs = ips.filter(function(ip) {
-          return !/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|127\.)/.test(ip);
-        });
-        resolve({ ips: ips, localIPs: localIPs, publicIPs: publicIPs, success: true });
-      }, 3000);
-    } catch (e) {
-      resolve({ success: false, error: e.message });
-    }
-  });
+// Returns true for any IP that is private/link-local and should never trigger a leak warning
+function isPrivateIP(ip) {
+  const lower = ip.toLowerCase();
+  return (
+    /^10\./.test(ip) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip) ||
+    /^192\.168\./.test(ip) ||
+    /^127\./.test(ip) ||
+    /^169\.254\./.test(ip) ||       // IPv4 link-local
+    /^::1$/.test(ip) ||             // IPv6 loopback
+    /^fe80:/i.test(ip) ||           // IPv6 link-local
+    /^fc[0-9a-f]{2}:/i.test(ip) ||  // IPv6 ULA fc00::/7
+    /^fd[0-9a-f]{2}:/i.test(ip) ||  // IPv6 ULA fd00::/8
+    /^::ffff:/i.test(lower)          // IPv4-mapped IPv6
+  );
+}
+
+async function scanLocalPorts() {
+  try {
+    if (!window.aegis || !window.aegis.scanLocalPorts) return { success: false, ports: [] };
+    const ports = await window.aegis.scanLocalPorts();
+    return { success: true, ports: ports };
+  } catch (e) {
+    return { success: false, ports: [] };
+  }
 }
 
 async function checkDNSLeak(ipData) {
@@ -1389,7 +1974,7 @@ function showIPChangeAlert(oldIP, newIP) {
   setTimeout(function() { alert.remove(); }, 8000);
 }
 
-function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
+function renderNetworkResults(ipData, dnsData, latencyData, portData) {
   const resultDiv = document.getElementById('network-result');
 
   // VPN STATUS
@@ -1398,10 +1983,6 @@ function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
   const vpnLabel = vpnActive ? '&#9989; VPN ACTIVE' : '&#9888; NO VPN DETECTED';
   const flag = ipData.success ? countryCodeToFlag(ipData.countryCode) : '';
 
-  // WEBRTC
-  const webrtcLeak = webrtcData.success && webrtcData.publicIPs.length > 0;
-  const webrtcColor = webrtcLeak ? '#ef4444' : '#10b981';
-  const webrtcLabel = webrtcLeak ? '&#9888; LEAK DETECTED' : '&#9989; NO LEAK';
 
   // DNS
   const dnsLeak = dnsData.success && dnsData.isLeaking;
@@ -1418,12 +1999,44 @@ function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
     (ipData.success ? '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:1.8;">IP: <span style="color:var(--text-primary)">' + ipData.ip + '</span><br>LOCATION: <span style="color:var(--text-primary)">' + flag + ' ' + ipData.city + ', ' + ipData.country + '</span><br>ISP: <span style="color:var(--text-primary)">' + ipData.isp + '</span></div>' : '<div style="color:#ef4444; font-family:var(--font-mono); font-size:13px;">Could not detect IP</div>') +
     '</div>' +
 
-    '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + webrtcColor + '; border-radius:3px; padding:20px;">' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:10px;">WEBRTC LEAK TEST</div>' +
-    '<div style="font-family:var(--font-title); font-size:16px; color:' + webrtcColor + '; margin-bottom:12px;">' + webrtcLabel + '</div>' +
-    '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim); line-height:1.8;">' +
-    (webrtcData.success ? 'LOCAL IPs: <span style="color:var(--text-primary)">' + (webrtcData.localIPs.length > 0 ? webrtcData.localIPs.join(', ') : 'None') + '</span><br>PUBLIC IPs: <span style="color:' + webrtcColor + '">' + (webrtcData.publicIPs.length > 0 ? webrtcData.publicIPs.join(', ') : 'None') + '</span>' : 'WebRTC not supported') +
-    '</div></div></div>' +
+    (function() {
+      if (!portData.success || portData.ports.length === 0) {
+        lastPortScanResults = [];
+        return '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid #64748b; border-radius:3px; padding:20px;">' +
+          '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:10px;">LOCAL PORT SCAN</div>' +
+          '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim);">Port scan unavailable.</div>' +
+          '</div>';
+      }
+      var RED_PORTS = [23, 4444, 6881];
+      var openPorts = portData.ports.filter(function(p) { return p.open; });
+      lastPortScanResults = openPorts;
+      var openCount = openPorts.length;
+      var closedCount = portData.ports.length - openCount;
+      var hasSuspicious = openPorts.some(function(p) { return RED_PORTS.indexOf(p.port) !== -1; });
+      var cardBorder = hasSuspicious ? '#ef4444' : (openCount > 0 ? '#f59e0b' : '#10b981');
+      return '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + cardBorder + '; border-radius:3px; padding:20px;">' +
+        '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">LOCAL PORT SCAN</div>' +
+        (hasSuspicious ? '<div style="font-family:var(--font-mono); font-size:12px; color:#ef4444; margin-bottom:8px;">&#9888; SUSPICIOUS PORTS DETECTED</div>' : '') +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">' +
+        '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">' +
+        '<span style="color:' + (openCount > 0 ? '#f59e0b' : '#10b981') + '">' + openCount + ' OPEN</span>' +
+        ' &nbsp;·&nbsp; <span style="color:#10b981">' + closedCount + ' CLOSED</span>' +
+        '</div>' +
+        (openCount > 0 ? '<button onclick="showPortFixAdvice()" class="aegis-btn" style="font-size:11px; padding:5px 12px;">HOW TO FIX &#8594;</button>' : '') +
+        '</div>' +
+        portData.ports.map(function(p) {
+          var isRed = RED_PORTS.indexOf(p.port) !== -1;
+          var statusColor = p.open ? (isRed ? '#ef4444' : '#f59e0b') : '#10b981';
+          return '<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(30,45,74,0.4);">' +
+            '<span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); min-width:38px;">' + p.port + '</span>' +
+            '<span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); flex:1; padding-left:4px;">' + p.service + '</span>' +
+            '<span style="font-family:var(--font-mono); font-size:11px; color:' + statusColor + '; font-weight:bold;">' + (p.open ? 'OPEN' : 'CLOSED') + '</span>' +
+            '</div>';
+        }).join('') +
+        '<div id="port-fix-panel"></div>' +
+        '</div>';
+    })() +
+    '</div>' +
 
     '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">' +
 
@@ -1450,6 +2063,64 @@ function renderNetworkResults(ipData, webrtcData, dnsData, latencyData) {
     '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-top:8px;">LAST SCAN: ' + new Date().toUTCString() + ' � AUTO-REFRESH: EVERY 5 MINUTES</div>';
 }
 
+async function showPortFixAdvice() {
+  const panel = document.getElementById('port-fix-panel');
+  if (!panel || !lastPortScanResults || lastPortScanResults.length === 0) return;
+
+  panel.innerHTML =
+    '<div style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px;">' +
+    '<div style="font-family:var(--font-title); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:12px;">AI REMEDIATION GUIDE</div>' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); margin-bottom:10px;">ANALYZING OPEN PORTS...</div>' +
+    '<div style="width:100%; height:3px; background:var(--bg-secondary); border-radius:2px;"><div style="height:3px; background:var(--amber); border-radius:2px; animation:loadingBar 2s ease-in-out infinite;"></div></div>' +
+    '</div>';
+
+  const prompt =
+    'You are a cybersecurity assistant helping a user secure their local machine.\n\n' +
+    'The following ports were found OPEN on localhost:\n\n' +
+    lastPortScanResults.map(function(p) { return '- Port ' + p.port + ' (' + p.service + ')'; }).join('\n') +
+    '\n\nFor EACH open port provide:\n' +
+    '1. What this service does and why it might be running\n' +
+    '2. The security risk — what an attacker could exploit\n' +
+    '3. Step-by-step instructions to close or disable it on:\n' +
+    '   - **Windows** (service names, commands)\n' +
+    '   - **macOS** (launchctl or System Settings steps)\n' +
+    '   - **Linux** (systemctl or iptables commands)\n\n' +
+    'Use ## Port NNN (ServiceName) as a heading for each port. Be concise but complete.';
+
+  try {
+    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content[0].text;
+
+    panel.innerHTML =
+      '<div style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">' +
+      '<div style="font-family:var(--font-title); font-size:12px; color:var(--amber); letter-spacing:2px;">AI REMEDIATION GUIDE</div>' +
+      '<button onclick="document.getElementById(\'port-fix-panel\').innerHTML = \'\'" class="aegis-btn" style="font-size:11px; padding:4px 12px; border-color:#ef4444; color:#ef4444;">&#10005; CLOSE</button>' +
+      '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-primary); line-height:1.8;">' +
+      renderBriefingMarkdown(text) +
+      '</div></div>';
+
+  } catch (e) {
+    panel.innerHTML =
+      '<div style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px;">' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; margin-bottom:10px;">Error: ' + e.message + '</div>' +
+      '<button onclick="document.getElementById(\'port-fix-panel\').innerHTML = \'\'" class="aegis-btn" style="font-size:11px; padding:4px 12px; border-color:#64748b; color:#64748b;">DISMISS</button>' +
+      '</div>';
+  }
+}
+
 // Auto-load network monitor when page is visited
 document.querySelectorAll('.nav-item').forEach(function(item) {
   item.addEventListener('click', function() {
@@ -1472,32 +2143,36 @@ async function loadDashboard() {
 
   dashDiv.innerHTML = '<p class="loading">LOADING AEGIS DASHBOARD...</p>';
 
-  // Load CVEs and News in parallel
-  const [cveData, newsData, ipData] = await Promise.all([
-    loadDashboardCVEs(),
+  // Load News and IP in parallel (CVEs no longer needed on dashboard)
+  const [newsData, ipData] = await Promise.all([
     loadDashboardNews(),
     loadDashboardIP()
   ]);
+  const cveData = [];
 
   const threatLevel = calculateThreatLevel(cveData);
   const threatColor = getThreatLevelColor(threatLevel);
 
   dashDiv.innerHTML =
     // THREAT LEVEL BANNER
-    '<div style="background:' + threatColor + '18; border:1px solid ' + threatColor + '; border-radius:4px; padding:20px 28px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">' +
+    '<div id="threat-banner" style="background:' + threatColor + '18; border:1px solid ' + threatColor + '; border-radius:4px; padding:20px 28px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">' +
     '<div>' +
     '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:3px; margin-bottom:6px;">CURRENT THREAT LEVEL</div>' +
-    '<div style="font-family:var(--font-title); font-size:28px; color:' + threatColor + '; letter-spacing:4px;">&#9888; ' + threatLevel + '</div>' +
+    '<div id="threat-level-text" style="font-family:var(--font-title); font-size:28px; color:' + threatColor + '; letter-spacing:4px;">&#9888; ' + threatLevel + '</div>' +
     '</div>' +
     '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); text-align:right;">LAST UPDATED<br><span style="color:var(--text-primary);">' + new Date().toUTCString() + '</span></div>' +
     '</div>' +
 
     // STAT CARDS
     '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">' +
-    renderStatCard('CVEs LOADED', cveData.length, cveData.length > 0 ? '#f59e0b' : '#64748b', '&#128737;') +
     renderStatCard('NEWS HEADLINES', newsData.length, newsData.length > 0 ? '#10b981' : '#64748b', '&#128225;') +
-    renderStatCard('CRITICAL CVEs', cveData.filter(function(c) { return c.severity === 'CRITICAL'; }).length, '#ef4444', '&#128308;') +
-    renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '&#128274;' : '&#9888;') +
+    '<div onclick="openRadarSamplesModal()" title="Click to view radar samples" style="background:var(--bg-card); border:1px solid var(--border); border-top:2px solid #64748b; border-radius:4px; padding:20px; text-align:center; cursor:pointer; transition:border-color 0.2s, box-shadow 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 0 1px rgba(245,158,11,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">' +
+    '<div style="font-size:24px; margin-bottom:8px;">&#9673;</div>' +
+    '<div id="stat-radar-value" style="font-family:var(--font-title); font-size:20px; color:#64748b; margin-bottom:6px;">0</div>' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:2px;">RADAR SAMPLES</div>' +
+    '</div>' +
+    renderStatCard('VPN STATUS', ipData.isVPN ? 'ACTIVE' : 'INACTIVE', ipData.isVPN ? '#10b981' : '#f59e0b', ipData.isVPN ? '&#128274;' : '&#9888;') +
+    renderStatCard('YOUR IP', ipData.ip || 'Unknown', ipData.isVPN ? '#10b981' : '#f59e0b', '&#127760;') +
     '</div>' +
 
     // QUICK ACTIONS
@@ -1512,41 +2187,47 @@ async function loadDashboard() {
     '</div>' +  // close quick actions flex
     '</div>' +  // close quick actions wrapper
 
-    // CVEs AND NEWS SIDE BY SIDE
+    // RADAR AND NEWS SIDE BY SIDE
     '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">' +
 
-    // LATEST CVEs
-    '<div class="card">' +
-    '<div class="card-header">LATEST CVEs</div>' +
-    (cveData.length > 0 ? cveData.slice(0, 5).map(function(cve) {
-      const color = getSeverityColor(cve.severity);
-      return '<div style="padding:12px 0; border-bottom:1px solid var(--border);">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">' +
-        '<span style="font-family:var(--font-title); font-size:13px; color:' + color + ';">' + cve.id + '</span>' +
-        '<span style="background:' + color + '; color:#020818; font-family:var(--font-mono); font-size:10px; padding:2px 8px; border-radius:2px;">' + cve.severity + '</span>' +
-        '</div>' +
-        '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); line-height:1.5;">' + cve.desc.slice(0, 100) + '...</div>' +
-        '</div>';
-    }).join('') : '<p class="placeholder-text">No CVE data loaded.</p>') +
-    '<button onclick="navigateTo(\'cve\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL CVEs ></button>' +
+    // NETWORK ANOMALY RADAR
+    '<div class="card" id="radar-card" style="border-top:2px solid var(--amber);">' +
+    '<div class="card-header" style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"><span>&#9673; NETWORK ANOMALY RADAR</span><div style="display:flex; gap:6px; flex-shrink:0;"><button id="radar-scan-btn" onclick="triggerRadarScan()" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; font-family:\'Orbitron\',sans-serif; font-size:10px; font-weight:700; letter-spacing:1px; padding:4px 12px; border-radius:2px; cursor:pointer; transition:all 0.2s;">SCAN NOW</button><button onclick="if(window.aegis)window.aegis.openMiniRadar()" title="Open mini radar widget" style="background:transparent; border:1px solid #f59e0b; color:#f59e0b; font-family:\'Orbitron\',sans-serif; font-size:10px; font-weight:700; letter-spacing:1px; padding:4px 10px; border-radius:2px; cursor:pointer; transition:all 0.2s;">◎ MINI</button></div></div>' +
+    '<div style="display:flex; gap:16px; align-items:flex-start;">' +
+    '<div style="flex-shrink:0;">' +
+    '<canvas id="radar-canvas" width="220" height="220" style="display:block; border-radius:3px;"></canvas>' +
+    '<canvas id="radar-sparkline" width="220" height="36" style="display:block; margin-top:4px;"></canvas>' +
     '</div>' +
+    '<div id="radar-readouts" style="flex:1; padding-top:4px;">' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">INITIALIZING...</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:2px; margin-bottom:8px;">ANOMALY FEED</div>' +
+    '<div id="radar-anomaly-feed" style="max-height:120px; overflow-y:auto;">' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); padding:4px 0;">&#10003; No anomalies detected</div>' +
+    '</div></div></div>' +
 
     // LATEST NEWS
     '<div class="card">' +
     '<div class="card-header">LATEST NEWS</div>' +
     (newsData.length > 0 ? newsData.slice(0, 5).map(function(item) {
-      const categories = getNewsCategories(item.title);
-      const borderColor = categories.length > 0 ? categories[0].color : 'var(--border)';
-      return '<div style="padding:12px 0; border-bottom:1px solid var(--border); border-left:2px solid ' + borderColor + '; padding-left:12px;">' +
-        '<div style="font-family:var(--font-ui); font-size:14px; color:var(--text-primary); font-weight:600; margin-bottom:4px; line-height:1.4;">' + item.title.slice(0, 80) + (item.title.length > 80 ? '...' : '') + '</div>' +
+      const icon  = newsCategoryIcon(item.title, item.description || '');
+      const thumb = newsThumbHTML(item.thumbnail, icon, 48);
+      return '<div style="padding:10px 0; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start;">' +
+        thumb +
+        '<div style="flex:1; min-width:0;">' +
+        '<div style="font-family:var(--font-ui); font-size:13px; color:var(--text-primary); font-weight:600; margin-bottom:5px; line-height:1.4;">' + item.title.slice(0, 90) + (item.title.length > 90 ? '...' : '') + '</div>' +
         '<div style="display:flex; justify-content:space-between;">' +
         '<span style="font-family:var(--font-mono); font-size:11px; color:var(--amber);">&#9658; ' + item.source + '</span>' +
         '<span style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">' + timeAgo(item.pubDate) + '</span>' +
-        '</div></div>';
+        '</div></div></div>';
     }).join('') : '<p class="placeholder-text">No news loaded.</p>') +
     '<button onclick="navigateTo(\'news\')" class="aegis-btn" style="margin-top:16px; font-size:11px; padding:8px 16px; width:100%;">VIEW ALL NEWS ></button>' +
     '</div>' +
     '</div>';  // close grid
+
+  setTimeout(initRadar, 50);
 }
 
 function renderStatCard(label, value, color, icon) {
@@ -1558,7 +2239,7 @@ function renderStatCard(label, value, color, icon) {
 }
 
 function calculateThreatLevel(cves) {
-  if (cves.length === 0) return 'UNKNOWN';
+  if (cves.length === 0) return 'LOW';
   const critical = cves.filter(function(c) { return c.severity === 'CRITICAL' && new Date(c.published) > new Date('1/1/2020'); }).length;
   const high = cves.filter(function(c) { return c.severity === 'HIGH' && new Date(c.published) > new Date('1/1/2020'); }).length;
   if (critical >= 3) return 'CRITICAL';
@@ -1579,11 +2260,12 @@ function getThreatLevelColor(level) {
 
 async function loadDashboardCVEs() {
   try {
-    let response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
-    if (!response.ok) response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20'));
+    const response = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent(nvdRecentCVEUrl(30, 20)));
     const data = await response.json();
     if (data.vulnerabilities) {
-      const cves = data.vulnerabilities.reverse().map(extractCVEData);
+      const cves = data.vulnerabilities
+        .sort(function(a, b) { return new Date(b.cve.published) - new Date(a.cve.published); })
+        .map(extractCVEData);
       if (allCVEs.length === 0) allCVEs = cves;
       return cves;
     }
@@ -1598,7 +2280,7 @@ async function loadDashboardNews() {
     const data = await response.json();
     if (data.status === 'ok' && data.items) {
       const news = data.items.slice(0, 10).map(function(item) {
-        return { title: item.title, link: item.link, pubDate: item.pubDate, source: 'The Hacker News', description: '' };
+        return { title: item.title, link: item.link, pubDate: item.pubDate, source: 'The Hacker News', description: '', thumbnail: extractNewsImage(item) };
       });
       if (allNews.length === 0) allNews = news;
       return news;
@@ -1621,7 +2303,7 @@ function navigateTo(page) {
   const navItems = document.querySelectorAll('.nav-item');
   const pages = document.querySelectorAll('.page');
   const pageTitle = document.getElementById('page-title');
-  const pageTitles = { dashboard: 'Security Dashboard', breach: 'Breach Checker', password: 'Password Health', ip: 'IP Investigator', cve: 'CVE Threat Feed', briefing: 'AI Briefing', news: 'Security News', network: 'Network Monitor' };
+  const pageTitles = { dashboard: 'Security Dashboard', 'network-intelligence': 'Network Intelligence', breach: 'Breach Checker', password: 'Password Health', ip: 'IP Investigator', cve: 'CVE Threat Feed', briefing: 'AI Briefing', news: 'Security News', network: 'Network Monitor', 'security-toolkit': 'Security Toolkit', 'network-toolkit': 'Network Toolkit', settings: 'Settings' };
   navItems.forEach(function(n) { n.classList.remove('active'); });
   pages.forEach(function(p) { p.classList.remove('active'); });
   const targetNav = document.querySelector('[data-page="' + page + '"]');
@@ -1640,10 +2322,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
   });
 });
 
-// Load dashboard on startup
-window.addEventListener('load', function() {
-  setTimeout(loadDashboard, 300);
-});
+// Dashboard is loaded by runSplash() once the splash animation completes.
 
 
 

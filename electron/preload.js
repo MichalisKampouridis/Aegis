@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('aegis', {
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
+  quitApp: () => ipcRenderer.send('app-quit'),
   hide: () => ipcRenderer.send('window-hide'),
   isMaximized: () => ipcRenderer.invoke('is-maximized'),
 
@@ -26,6 +27,7 @@ contextBridge.exposeInMainWorld('aegis', {
   // ── Database: Briefings ───────────────────────────────────────
   getBriefings: () => ipcRenderer.invoke('db-get-briefings'),
   addBriefing: (entry) => ipcRenderer.invoke('db-add-briefing', entry),
+  clearBriefings: () => ipcRenderer.invoke('db-clear-briefings'),
 
   // ── Database: Incidents ───────────────────────────────────────
   getIncidents: (limit) => ipcRenderer.invoke('db-get-incidents', limit),
@@ -52,6 +54,28 @@ contextBridge.exposeInMainWorld('aegis', {
 
   // ── Monitor ───────────────────────────────────────────────────
   restartMonitor: () => ipcRenderer.invoke('restart-monitor'),
+
+  // ── Local port scanner ────────────────────────────────────────
+  scanLocalPorts: () => ipcRenderer.invoke('scan-local-ports'),
+
+  // ── Radar readings ────────────────────────────────────────────
+  addRadarReading: (reading) => ipcRenderer.invoke('db-add-radar-reading', reading),
+  getRadarReadings: (limit) => ipcRenderer.invoke('db-get-radar-readings', limit),
+
+  // ── Database: Chat History (Security Toolkit) ────────────────
+  getChatHistory: () => ipcRenderer.invoke('db-get-chat-history'),
+  saveChatHistory: (messages) => ipcRenderer.invoke('db-save-chat-history', messages),
+  clearChatHistory: () => ipcRenderer.invoke('db-clear-chat-history'),
+
+  // ── Database: CVE Explanations (Security Toolkit) ────────────
+  getCVEExplanations: () => ipcRenderer.invoke('db-get-cve-explanations'),
+  saveCVEExplanations: (items) => ipcRenderer.invoke('db-save-cve-explanations', items),
+  clearCVEExplanations: () => ipcRenderer.invoke('db-clear-cve-explanations'),
+
+  // ── Multi-window ─────────────────────────────────────────────
+  openDetachedWindow: (page) => ipcRenderer.invoke('open-detached-window', page),
+  setSocPreset: (preset) => ipcRenderer.invoke('set-soc-preset', preset),
+  openMiniRadar: () => ipcRenderer.invoke('open-mini-radar'),
 
   // ── Events FROM main → renderer ───────────────────────────────
   onConnectivityChange: (callback) => {

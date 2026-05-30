@@ -32,6 +32,8 @@ body {
   height: 100vh;
   overflow: hidden;
   font-size: 16px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── CUSTOM TITLE BAR ─────────────────────────────────────── */
@@ -332,9 +334,11 @@ kbd {
 }
 
 .nav-icon {
-  font-size: 18px;
   width: 24px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .sidebar-footer {
@@ -343,6 +347,11 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.sidebar-settings-pin {
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
 }
 
 .status-dot {
@@ -627,12 +636,66 @@ kbd {
   transition: width 1.2s ease-out !important;
 }
 
+/* ── NETWORK INTELLIGENCE: TIME-RANGE TABS ───────────────── */
+.ni-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 5px 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.ni-tab:hover { color: var(--amber); border-color: var(--amber-dim); }
+.ni-tab.active {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(245,158,11,0.10);
+}
+
+/* ── NETWORK INTELLIGENCE: LOG FILTER BUTTONS ────────────── */
+.ni-log-filter-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.ni-log-filter-btn:hover { color: var(--text-primary); border-color: #475569; }
+.ni-log-filter-btn.active {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(245,158,11,0.10);
+}
+
+/* ── DISABLED STATE FOR PAGINATION ──────────────────────── */
+.aegis-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 #page-network .card {
   overflow: visible !important;
 }
 
 
 
+
+@keyframes niDotPulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70%  { box-shadow: 0 0 0 8px transparent; opacity: 0.8; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+.ni-dot-pulse { animation: niDotPulse 1.8s ease-in-out infinite; }
 
 @keyframes shieldPulse {
   0% { opacity:0; transform:scale(0.5); filter:drop-shadow(0 0 0px rgba(245,158,11,0)); }

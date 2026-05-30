@@ -25,12 +25,15 @@ const IS_ELECTRON = typeof window !== 'undefined' && !!window.aegis;
   function syncTitleBar(pageKey) {
     const titles = {
       dashboard: 'Security Dashboard',
+      'network-intelligence': 'Network Intelligence',
       password: 'Password Health',
       ip: 'IP Investigator',
       cve: 'CVE Threat Feed',
       briefing: 'AI Briefing',
       news: 'Security News',
       network: 'Network Monitor',
+      'security-toolkit': 'Security Toolkit',
+      'network-toolkit': 'Network Toolkit',
       settings: 'Settings'
     };
     if (titleBarPage) titleBarPage.textContent = titles[pageKey] || pageKey;
@@ -48,7 +51,7 @@ document.addEventListener('keydown', function(e) {
   const ctrl = e.ctrlKey || e.metaKey;
 
   if (ctrl && !e.shiftKey) {
-    const pageMap = { '1': 'dashboard', '2': 'password', '3': 'ip', '4': 'cve', '5': 'briefing', '6': 'news', '7': 'network', '8': 'settings' };
+    const pageMap = { '1': 'dashboard', '2': 'network-intelligence', '3': 'password', '4': 'ip', '5': 'cve', '6': 'briefing', '7': 'news', '8': 'network', '9': 'security-toolkit', '0': 'network-toolkit' };
     if (pageMap[e.key]) {
       e.preventDefault();
       navigateTo(pageMap[e.key]);
@@ -182,7 +185,10 @@ async function loadSettings() {
     currentSettings = {
       autoLaunch: false,
       monitorInterval: 5,
-      notifications: { ipChange: true, vpnDrop: true, criticalCVE: true, anomaly: true }
+      notifications: { ipChange: true, vpnDrop: true, criticalCVE: true, anomaly: true },
+      sounds: { ui: true, alert: true, briefing: true },
+      socPreset: 'single',
+      startupPreset: false
     };
   } else {
     currentSettings = await window.aegis.getAllSettings();
@@ -199,13 +205,28 @@ async function loadSettings() {
   if (el('setting-notif-cve')) el('setting-notif-cve').checked = notifs.criticalCVE !== false;
   if (el('setting-notif-anomaly')) el('setting-notif-anomaly').checked = notifs.anomaly !== false;
 
+  const sounds = currentSettings.sounds || {};
+  if (el('setting-sound-ui'))       el('setting-sound-ui').checked       = sounds.ui       !== false;
+  if (el('setting-sound-alert'))    el('setting-sound-alert').checked    = sounds.alert    !== false;
+  if (el('setting-sound-briefing')) el('setting-sound-briefing').checked = sounds.briefing !== false;
+
+  if (typeof updateSocPresetButtons === 'function') {
+    updateSocPresetButtons(currentSettings.socPreset || 'single');
+  }
+  if (el('setting-startup-preset')) {
+    el('setting-startup-preset').checked = !!currentSettings.startupPreset;
+  }
+
   // About section
   if (IS_ELECTRON) {
     const version = await window.aegis.getVersion();
-    const dataPath = await window.aegis.getDataPath();
-    if (el('about-version')) el('about-version').textContent = version;
-    if (el('about-platform')) el('about-platform').textContent = navigator.platform + ' (Desktop)';
-    if (el('about-datapath')) el('about-datapath').textContent = dataPath;
+    if (el('about-version')) el('about-version').textContent = version + ' — Stable Release';
+    let platformName = navigator.platform || '';
+    if (/Win/i.test(platformName)) platformName = 'Windows';
+    else if (/Mac/i.test(platformName)) platformName = 'macOS';
+    else platformName = 'Linux';
+    if (el('about-platform')) el('about-platform').textContent = platformName + ' (Desktop)';
+    if (el('about-builddate')) el('about-builddate').textContent = '2026-05-28';
     if (el('splash-version')) el('splash-version').textContent = 'v' + version + ' · AEGIS PLATFORM · 2026';
   }
 
@@ -243,6 +264,29 @@ function saveNotifSetting(key, value) {
   currentSettings.notifications[key] = value;
   if (IS_ELECTRON) {
     window.aegis.setSetting('notifications.' + key, value);
+  }
+}
+
+function saveSoundSetting(key, value) {
+  if (!currentSettings.sounds) currentSettings.sounds = {};
+  currentSettings.sounds[key] = value;
+  if (IS_ELECTRON) {
+    window.aegis.setSetting('sounds.' + key, value);
+  }
+}
+
+function saveStartupPresetSetting(enabled) {
+  currentSettings.startupPreset = !!enabled;
+  saveSetting('startupPreset', !!enabled);
+  const confirm = document.getElementById('startup-preset-confirm');
+  if (!confirm) return;
+  if (enabled) {
+    const names = { single: 'SINGLE MONITOR', dual: 'DUAL MONITOR', triple: 'TRIPLE MONITOR' };
+    const preset = currentSettings.socPreset || 'single';
+    confirm.textContent = '✓ Aegis will launch in ' + (names[preset] || preset.toUpperCase()) + ' mode on next start';
+    confirm.style.display = 'block';
+  } else {
+    confirm.style.display = 'none';
   }
 }
 
@@ -342,16 +386,18 @@ window.navigateTo = function(page) {
   const titleBarPage = document.getElementById('title-bar-page');
   if (titleBarPage) {
     const titles = {
-      dashboard: 'Security Dashboard', password: 'Password Health',
-      ip: 'IP Investigator', cve: 'CVE Threat Feed', briefing: 'AI Briefing',
-      news: 'Security News', network: 'Network Monitor', settings: 'Settings'
+      dashboard: 'Security Dashboard', 'network-intelligence': 'Network Intelligence',
+      password: 'Password Health', ip: 'IP Investigator', cve: 'CVE Threat Feed',
+      briefing: 'AI Briefing', news: 'Security News', network: 'Network Monitor',
+      'security-toolkit': 'Security Toolkit', 'network-toolkit': 'Network Toolkit', settings: 'Settings'
     };
     titleBarPage.textContent = titles[page] || page;
   }
-  // Load settings when settings page is opened
   if (page === 'settings') { loadSettings(); loadStorageInfo(); }
-  // Load incident log when network page is opened
   if (page === 'network') { setTimeout(loadIncidentLog, 500); }
+  if (page === 'network-intelligence') { setTimeout(function() { if (typeof initNetworkIntelligence === 'function') initNetworkIntelligence(); }, 100); }
+  if (page === 'security-toolkit') { setTimeout(function() { if (typeof initSecurityToolkit === 'function') initSecurityToolkit(); }, 150); }
+  if (page === 'network-toolkit') { setTimeout(function() { if (typeof initNetworkToolkit === 'function') initNetworkToolkit(); }, 150); }
 };
 
 // ─── PATCH network scan to also persist to DB ────────────────
@@ -413,14 +459,18 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     const titleBarPage = document.getElementById('title-bar-page');
     if (titleBarPage) {
       const titles = {
-        dashboard: 'Security Dashboard', password: 'Password Health',
-        ip: 'IP Investigator', cve: 'CVE Threat Feed', briefing: 'AI Briefing',
-        news: 'Security News', network: 'Network Monitor', settings: 'Settings'
+        dashboard: 'Security Dashboard', 'network-intelligence': 'Network Intelligence',
+        password: 'Password Health', ip: 'IP Investigator', cve: 'CVE Threat Feed',
+        briefing: 'AI Briefing', news: 'Security News', network: 'Network Monitor',
+        'security-toolkit': 'Security Toolkit', 'network-toolkit': 'Network Toolkit', settings: 'Settings'
       };
       titleBarPage.textContent = titles[page] || page;
     }
     if (page === 'settings') setTimeout(function() { loadSettings(); loadStorageInfo(); }, 100);
     if (page === 'network') setTimeout(loadIncidentLog, 600);
+    if (page === 'network-intelligence') setTimeout(function() { if (typeof initNetworkIntelligence === 'function') initNetworkIntelligence(); }, 100);
+    if (page === 'security-toolkit') setTimeout(function() { if (typeof initSecurityToolkit === 'function') initSecurityToolkit(); }, 150);
+    if (page === 'network-toolkit') setTimeout(function() { if (typeof initNetworkToolkit === 'function') initNetworkToolkit(); }, 150);
   });
 });
 

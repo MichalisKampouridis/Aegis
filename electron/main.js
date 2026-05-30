@@ -4,6 +4,9 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog, Not
 const path = require('path');
 const Store = require('electron-store');
 
+// Set app name before anything else so app.getPath('userData') uses 'Aegis' not 'aegis'
+app.setName('Aegis');
+
 // ─── CONSTANTS ───────────────────────────────────────────────
 const IS_DEV = process.argv.includes('--dev');
 const ICON_PATH = path.join(__dirname, '..', 'assets');
@@ -20,7 +23,9 @@ const store = new Store({
       anomaly: true
     },
     windowBounds: { width: 1400, height: 900 },
-    theme: 'dark'
+    theme: 'dark',
+    socPreset: 'single',
+    startupPreset: false
   }
 });
 
@@ -33,6 +38,10 @@ let lastVPNState = null;
 let isQuitting = false;
 let incidentLog = [];
 
+// Multi-window tracking
+const detachedWindows = new Map(); // page → BrowserWindow
+let miniRadarWindow = null;
+
 // ─── DATABASE (in-memory + file, no native module needed) ─────
 // We use electron-store for simplicity and zero native deps
 const db = new Store({
@@ -41,7 +50,10 @@ const db = new Store({
     ipHistory: [],
     networkScans: [],
     briefingHistory: [],
-    incidents: []
+    incidents: [],
+    radarReadings: [],
+    chatHistory: [],
+    cveExplanations: []
   }
 });
 
@@ -49,9 +61,15 @@ const db = new Store({
 function createWindow() {
   const bounds = store.get('windowBounds');
 
+  // Always open on the primary display, ignoring any stale saved position
+  const { screen } = require('electron');
+  const primaryBounds = screen.getPrimaryDisplay().bounds;
+
   mainWindow = new BrowserWindow({
-    width: bounds.width,
+    width:  bounds.width,
     height: bounds.height,
+    x: primaryBounds.x,
+    y: primaryBounds.y,
     minWidth: 900,
     minHeight: 600,
     frame: false,
@@ -70,10 +88,24 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));
 
-  // Show when ready (prevents white flash)
-  mainWindow.once('ready-to-show', () => {
+  // Show as soon as the DOM is ready so the splash animation is visible.
+  // ready-to-show waits for first paint (which includes font fetches) and
+  // fires AFTER the ~3.3s splash animation completes, causing it to be
+  // skipped. dom-ready fires right after DOMContentLoaded — scripts have
+  // run, the splash interval has started, and backgroundColor:#020818
+  // prevents any white flash before the first paint.
+  mainWindow.webContents.once('dom-ready', () => {
     mainWindow.show();
+    mainWindow.maximize();
     if (IS_DEV) mainWindow.webContents.openDevTools();
+
+    // Apply startup preset if the user enabled it
+    if (store.get('startupPreset')) {
+      const preset = store.get('socPreset') || 'single';
+      if (preset !== 'single') {
+        setTimeout(() => applySocPreset(preset), 800);
+      }
+    }
   });
 
   // Save window size on resize
@@ -90,6 +122,30 @@ function createWindow() {
       mainWindow.hide();
       showTrayNotification('Aegis is still running', 'Aegis is monitoring in the background. Right-click the tray icon to quit.');
     }
+  });
+
+  // Right-click context menu
+  mainWindow.webContents.on('context-menu', (_, params) => {
+    const template = [];
+    if (params.isEditable) {
+      template.push({ label: 'Cut', role: 'cut', enabled: params.selectionText.length > 0 });
+    }
+    template.push({ label: 'Copy', role: 'copy', enabled: params.selectionText.length > 0 });
+    if (params.isEditable) {
+      template.push({ label: 'Paste', role: 'paste' });
+    }
+    template.push({ type: 'separator' });
+    template.push({ label: 'Select All', role: 'selectAll' });
+    Menu.buildFromTemplate(template).popup({ window: mainWindow });
+  });
+
+  // When main window is restored from taskbar, also restore all detached windows
+  mainWindow.on('restore', () => {
+    detachedWindows.forEach(function(win) {
+      if (win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+    });
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -112,12 +168,21 @@ function createTray() {
   updateTrayMenu();
 
   tray.on('click', () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        mainWindow.focus();
-      } else {
-        mainWindow.show();
-      }
+    const managed = [mainWindow, ...Array.from(detachedWindows.values())
+      .filter(w => !w.isDestroyed())];
+    const allVisible = managed.every(w => w && w.isVisible() && !w.isMinimized());
+
+    if (allVisible) {
+      // All windows visible — minimize everything together
+      managed.forEach(w => { if (w) w.minimize(); });
+    } else {
+      // Restore/show everything
+      managed.forEach(w => {
+        if (!w || w.isDestroyed()) return;
+        if (w.isMinimized()) w.restore();
+        w.show();
+      });
+      if (mainWindow) mainWindow.focus();
     }
   });
 }
@@ -128,7 +193,11 @@ function updateTrayMenu(status = 'secure') {
     { label: 'AEGIS SECURITY', enabled: false },
     { label: statusLabels[status] || statusLabels.secure, enabled: false },
     { type: 'separator' },
-    { label: 'Open Aegis', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    { label: 'Open Aegis', click: () => {
+      const managed = [mainWindow, ...Array.from(detachedWindows.values()).filter(w => !w.isDestroyed())];
+      managed.forEach(w => { if (!w || w.isDestroyed()) return; if (w.isMinimized()) w.restore(); w.show(); });
+      if (mainWindow) mainWindow.focus();
+    }},
     { label: 'Run Network Scan', click: () => { triggerNetworkScan(); } },
     { label: 'Check My IP', click: () => { openPageInApp('network'); } },
     { type: 'separator' },
@@ -239,14 +308,49 @@ function logIncident(type, description, severity = 'INFO') {
 
 // ─── IPC HANDLERS ─────────────────────────────────────────────
 
-// Window controls
-ipcMain.on('window-minimize', () => mainWindow && mainWindow.minimize());
-ipcMain.on('window-maximize', () => {
-  if (!mainWindow) return;
-  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+// Window controls — main window controls affect all tracked windows;
+// detached window controls affect only that window.
+ipcMain.on('window-minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win === mainWindow) {
+    mainWindow.minimize();
+    detachedWindows.forEach(dw => { if (!dw.isDestroyed()) dw.minimize(); });
+  } else {
+    win.minimize();
+  }
 });
-ipcMain.on('window-close', () => mainWindow && mainWindow.close());
-ipcMain.on('window-hide', () => mainWindow && mainWindow.hide());
+ipcMain.on('window-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win === mainWindow) {
+    const willMax = !mainWindow.isMaximized();
+    willMax ? mainWindow.maximize() : mainWindow.unmaximize();
+    detachedWindows.forEach(dw => {
+      if (!dw.isDestroyed()) willMax ? dw.maximize() : dw.unmaximize();
+    });
+  } else {
+    win.isMaximized() ? win.unmaximize() : win.maximize();
+  }
+});
+ipcMain.on('window-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win === mainWindow) {
+    mainWindow.hide();
+    showTrayNotification('Aegis is still running', 'Aegis is monitoring in the background. Right-click the tray icon to quit.');
+  } else {
+    win.close();
+  }
+});
+ipcMain.on('app-quit', () => {
+  isQuitting = true;
+  app.quit();
+});
+ipcMain.on('window-hide', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.hide();
+});
 
 // Settings
 ipcMain.handle('get-setting', (_, key) => store.get(key));
@@ -290,6 +394,7 @@ ipcMain.handle('db-add-briefing', (_, entry) => {
   db.set('briefingHistory', history);
   return true;
 });
+ipcMain.handle('db-clear-briefings', () => { db.set('briefingHistory', []); return true; });
 
 // Database: Incidents
 ipcMain.handle('db-get-incidents', (_, limit = 100) => db.get('incidents').slice(0, limit));
@@ -308,21 +413,55 @@ ipcMain.handle('db-add-network-scan', (_, scan) => {
 ipcMain.handle('db-get-network-scans', (_, limit = 200) => db.get('networkScans').slice(0, limit));
 
 // Data management
+// Database: Radar Readings
+ipcMain.handle('db-add-radar-reading', (_, reading) => {
+  const readings = db.get('radarReadings');
+  readings.push({ ...reading });
+  if (readings.length > 1000) readings.splice(0, readings.length - 1000);
+  db.set('radarReadings', readings);
+  return true;
+});
+ipcMain.handle('db-get-radar-readings', (_, limit = 60) => {
+  return db.get('radarReadings').slice(-limit);
+});
+
 ipcMain.handle('db-get-storage-info', () => {
   const incidents = db.get('incidents').length;
   const ipHistory = db.get('ipHistory').length;
   const scans = db.get('networkScans').length;
   const briefings = db.get('briefingHistory').length;
-  return { incidents, ipHistory, scans, briefings };
+  const radarReadings = db.get('radarReadings').length;
+  const chatMessages = db.get('chatHistory').length;
+  const cveExplanations = db.get('cveExplanations').length;
+  return { incidents, ipHistory, scans, briefings, radarReadings, chatMessages, cveExplanations };
 });
 ipcMain.handle('db-clear-all', () => {
   db.set('ipHistory', []);
   db.set('networkScans', []);
   db.set('briefingHistory', []);
   db.set('incidents', []);
+  db.set('radarReadings', []);
+  db.set('chatHistory', []);
+  db.set('cveExplanations', []);
   return true;
 });
 ipcMain.handle('db-export-incidents', () => db.get('incidents'));
+
+// Database: Chat History (Security Toolkit — Ask Aegis)
+ipcMain.handle('db-get-chat-history', () => db.get('chatHistory').slice(-50));
+ipcMain.handle('db-save-chat-history', (_, messages) => {
+  db.set('chatHistory', (messages || []).slice(-50));
+  return true;
+});
+ipcMain.handle('db-clear-chat-history', () => { db.set('chatHistory', []); return true; });
+
+// Database: CVE Explanations (Security Toolkit — CVE Explainer)
+ipcMain.handle('db-get-cve-explanations', () => db.get('cveExplanations').slice(0, 10));
+ipcMain.handle('db-save-cve-explanations', (_, items) => {
+  db.set('cveExplanations', (items || []).slice(0, 10));
+  return true;
+});
+ipcMain.handle('db-clear-cve-explanations', () => { db.set('cveExplanations', []); return true; });
 
 // App info
 ipcMain.handle('get-app-version', () => app.getVersion());
@@ -341,8 +480,170 @@ ipcMain.handle('restart-monitor', () => { startMonitoring(); return true; });
 // Window state
 ipcMain.handle('is-maximized', () => mainWindow ? mainWindow.isMaximized() : false);
 
+// Local port scanner — uses Node's net module, no external API
+ipcMain.handle('scan-local-ports', () => {
+  const net = require('net');
+  const PORTS = [
+    { port: 21,   service: 'FTP' },
+    { port: 22,   service: 'SSH' },
+    { port: 23,   service: 'Telnet' },
+    { port: 25,   service: 'SMTP' },
+    { port: 80,   service: 'HTTP' },
+    { port: 443,  service: 'HTTPS' },
+    { port: 3389, service: 'RDP' },
+    { port: 4444, service: 'Metasploit' },
+    { port: 5900, service: 'VNC' },
+    { port: 6881, service: 'BitTorrent' },
+    { port: 8080, service: 'HTTP Alt' },
+    { port: 8443, service: 'HTTPS Alt' }
+  ];
+
+  const scanPort = (port) => new Promise((resolve) => {
+    const socket = new net.Socket();
+    let open = false;
+    socket.setTimeout(500);
+    socket.on('connect', () => { open = true; socket.destroy(); });
+    socket.on('timeout', () => { socket.destroy(); });
+    socket.on('error',   () => { socket.destroy(); });
+    socket.on('close',   () => { resolve(open); });
+    socket.connect(port, '127.0.0.1');
+  });
+
+  return Promise.all(PORTS.map(async ({ port, service }) => ({
+    port, service, open: await scanPort(port)
+  })));
+});
+
+// ─── MULTI-WINDOW ─────────────────────────────────────────────
+function createDetachedWindow(page, opts = {}) {
+  const { width = 1000, height = 700, alwaysOnTop = false, x, y } = opts;
+  const winOpts = {
+    width, height,
+    frame: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#020818',
+    alwaysOnTop,
+    show: false,
+    icon: path.join(ICON_PATH, process.platform === 'win32' ? 'icon.ico' : process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false
+    }
+  };
+  if (x !== undefined) winOpts.x = Math.round(x);
+  if (y !== undefined) winOpts.y = Math.round(y);
+
+  const { maximizeOnOpen = false } = opts;
+
+  const win = new BrowserWindow(winOpts);
+  win.loadFile(path.join(__dirname, '..', 'index.html'), { query: { page } });
+  win.once('ready-to-show', () => {
+    win.show();
+    if (maximizeOnOpen) win.maximize();
+  });
+  win.on('closed', () => {
+    if (page === 'mini-radar') { miniRadarWindow = null; }
+    else { detachedWindows.delete(page); }
+  });
+  return win;
+}
+
+ipcMain.handle('open-detached-window', (_, page) => {
+  if (detachedWindows.has(page)) {
+    const existing = detachedWindows.get(page);
+    if (!existing.isDestroyed()) { existing.show(); existing.focus(); return true; }
+    detachedWindows.delete(page);
+  }
+  let x, y;
+  if (mainWindow) { const b = mainWindow.getBounds(); x = b.x + 50; y = b.y + 50; }
+  const win = createDetachedWindow(page, { x, y });
+  detachedWindows.set(page, win);
+  return true;
+});
+
+// Extracted so it can be called both from the IPC handler and on startup.
+function applySocPreset(preset) {
+  store.set('socPreset', preset);
+
+  // Close all existing detached windows before opening the new layout
+  const toClose = Array.from(detachedWindows.values());
+  detachedWindows.clear();
+  toClose.forEach(function(win) { if (!win.isDestroyed()) win.close(); });
+
+  const { screen } = require('electron');
+  const primary  = screen.getPrimaryDisplay();
+  // Sort: primary first, remaining by id so order is deterministic
+  const displays = [primary, ...screen.getAllDisplays()
+    .filter(d => d.id !== primary.id)
+    .sort((a, b) => a.id - b.id)];
+
+  function displayOpts(i) {
+    if (i < displays.length) {
+      const d = displays[i];
+      return { x: d.bounds.x, y: d.bounds.y, maximizeOnOpen: true };
+    }
+    const base = mainWindow ? mainWindow.getBounds() : { x: 100, y: 100 };
+    return { x: base.x + i * 100, y: base.y + i * 100, maximizeOnOpen: false };
+  }
+
+  if (preset === 'single') {
+    if (mainWindow) mainWindow.maximize();
+    return;
+  }
+
+  if (mainWindow) mainWindow.maximize();
+
+  if (preset === 'dual' || preset === 'triple') {
+    const opts2 = displayOpts(1);
+    const win2  = createDetachedWindow('network-intelligence', opts2);
+    detachedWindows.set('network-intelligence', win2);
+  }
+
+  if (preset === 'triple') {
+    const opts3 = displayOpts(2);
+    const win3  = createDetachedWindow('network', opts3);
+    detachedWindows.set('network', win3);
+  }
+}
+
+ipcMain.handle('set-soc-preset', (_, preset) => {
+  applySocPreset(preset);
+  return true;
+});
+
+ipcMain.handle('open-mini-radar', () => {
+  if (miniRadarWindow && !miniRadarWindow.isDestroyed()) {
+    miniRadarWindow.show(); miniRadarWindow.focus(); return true;
+  }
+  let x, y;
+  if (mainWindow) {
+    const b = mainWindow.getBounds();
+    x = b.x + b.width - 340;
+    y = b.y + 50;
+  }
+  miniRadarWindow = createDetachedWindow('mini-radar', { width: 320, height: 380, alwaysOnTop: true, x, y });
+  return true;
+});
+
 // ─── APP EVENTS ───────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Log all detected displays to help debug multi-monitor positioning
+  try {
+    const { screen } = require('electron');
+    const pri = screen.getPrimaryDisplay();
+    const all = screen.getAllDisplays();
+    console.log(`[Aegis] Displays detected: ${all.length}`);
+    all.forEach((d, i) => {
+      const tag = d.id === pri.id ? ' [PRIMARY]' : '';
+      console.log(`  [${i}] id=${d.id}${tag} bounds=${JSON.stringify(d.bounds)} workArea=${JSON.stringify(d.workArea)} scaleFactor=${d.scaleFactor}`);
+    });
+  } catch (e) {
+    console.log('[Aegis] Could not enumerate displays:', e.message);
+  }
+
   createWindow();
   createTray();
   startMonitoring();
@@ -390,8 +691,10 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-  const { globalShortcut } = require('electron');
-  globalShortcut.unregisterAll();
+  if (app.isReady()) {
+    const { globalShortcut } = require('electron');
+    globalShortcut.unregisterAll();
+  }
 });
 
 // Handle second instance (single instance lock)
