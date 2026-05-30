@@ -54,11 +54,12 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
       ],
-      "icon": "assets/icon.png",
-      "category": "Security"
+      "icon": "assets/icon.png"
     },
     "nsis": {
       "oneClick": false,
@@ -78,7 +79,10 @@
     "cybersecurity",
     "dashboard"
   ],
-  "author": "Michalis",
+  "author": {
+    "name": "Michalis Kampouridis",
+    "email": "ka.mixalis99@gmail.com"
+  },
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.0.0",

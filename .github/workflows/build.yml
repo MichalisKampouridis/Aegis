@@ -33,7 +33,8 @@ jobs:
       - name: Build Windows x64
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --win --x64
+          PUBLISH_FOR_PULL_REQUEST: false
+        run: npx electron-builder --win --x64 --publish never
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -69,7 +70,8 @@ jobs:
       - name: Build macOS
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --mac
+          PUBLISH_FOR_PULL_REQUEST: false
+        run: npx electron-builder --mac --publish never
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -108,7 +110,8 @@ jobs:
       - name: Build Linux AppImage
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --linux
+          PUBLISH_FOR_PULL_REQUEST: false
+        run: npx electron-builder --linux --publish never
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
