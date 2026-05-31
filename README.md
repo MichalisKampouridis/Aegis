@@ -44,6 +44,26 @@ Built with Electron. Runs on Windows, macOS, and Linux.
 
 ---
 
+## Installation
+
+**Windows**
+1. Download `Aegis-Setup-1.0.0.exe` from the latest release
+2. Run the installer
+3. Launch Aegis from the Start Menu or Desktop shortcut
+
+**macOS**
+1. Download `Aegis-1.0.0.dmg` from the latest release
+2. Open the .dmg file
+3. Drag Aegis to your Applications folder
+4. Right-click Aegis → Open (first launch only, to bypass Gatekeeper)
+
+**Linux**
+1. Download `Aegis-1.0.0.AppImage` from the latest release
+2. Make it executable: `chmod +x Aegis-1.0.0.AppImage`
+3. Run it: `./Aegis-1.0.0.AppImage`
+
+---
+
 ## Why I built this
 
 I wanted a tool I'd actually use every day — something that sits in my tray, monitors my connection, and keeps me informed about current threats without me having to open five different browser tabs. Everything in Aegis is something I found myself doing manually and decided to automate.
