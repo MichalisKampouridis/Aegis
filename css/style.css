@@ -104,6 +104,14 @@ body {
 .tb-max:hover { background: var(--amber-glow); color: var(--amber); }
 .tb-min:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 
+/* macOS: shift logo right of native traffic lights; hide redundant custom controls */
+body.macos .title-bar {
+  padding-left: 80px;
+}
+body.macos .title-bar-controls {
+  display: none;
+}
+
 /* When Electron title bar is present, shift app layout down */
 body.has-titlebar .app-container {
   height: calc(100vh - var(--title-bar-height));

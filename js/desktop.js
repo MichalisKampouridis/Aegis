@@ -18,6 +18,10 @@ const IS_ELECTRON = typeof window !== 'undefined' && !!window.aegis;
 
   document.body.classList.add('has-titlebar');
 
+  if (window.aegisPlatform === 'darwin') {
+    document.body.classList.add('macos');
+  }
+
   // Keep title bar page name in sync with sidebar navigation
   const origNavHandler = window._navHandler;
   const titleBarPage = document.getElementById('title-bar-page');

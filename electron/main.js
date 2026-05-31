@@ -65,6 +65,7 @@ function createWindow() {
   const { screen } = require('electron');
   const primaryBounds = screen.getPrimaryDisplay().bounds;
 
+  const isMac = process.platform === 'darwin';
   mainWindow = new BrowserWindow({
     width:  bounds.width,
     height: bounds.height,
@@ -72,8 +73,7 @@ function createWindow() {
     y: primaryBounds.y,
     minWidth: 900,
     minHeight: 600,
-    frame: false,
-    titleBarStyle: 'hidden',
+    ...(isMac ? { titleBarStyle: 'hiddenInset' } : { frame: false, titleBarStyle: 'hidden' }),
     backgroundColor: '#020818',
     show: false,
     icon: path.join(ICON_PATH, process.platform === 'win32' ? 'icon.ico' : process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
@@ -517,10 +517,10 @@ ipcMain.handle('scan-local-ports', () => {
 // ─── MULTI-WINDOW ─────────────────────────────────────────────
 function createDetachedWindow(page, opts = {}) {
   const { width = 1000, height = 700, alwaysOnTop = false, x, y } = opts;
+  const isMacDW = process.platform === 'darwin';
   const winOpts = {
     width, height,
-    frame: false,
-    titleBarStyle: 'hidden',
+    ...(isMacDW ? { titleBarStyle: 'hiddenInset' } : { frame: false, titleBarStyle: 'hidden' }),
     backgroundColor: '#020818',
     alwaysOnTop,
     show: false,

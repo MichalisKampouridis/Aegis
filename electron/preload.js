@@ -2,6 +2,9 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Expose platform so the renderer can apply platform-specific styling (e.g. macOS traffic lights)
+contextBridge.exposeInMainWorld('aegisPlatform', process.platform);
+
 // Expose a safe, limited API to the renderer process
 contextBridge.exposeInMainWorld('aegis', {
 
