@@ -503,10 +503,12 @@ let lcPollTimer   = null;
 let lcMap         = null;
 let lcUserLL      = null;
 let lcUserMarker  = null;
-let lcConnections = new Map(); // ip → { marker, line, glow, geo, color }
+let lcConnections = new Map(); // ip → { marker, line, glow, geo, color, gameName }
 let lcGeoCache    = new Map(); // ip → geo data
 let lcDnsCache    = new Map(); // ip → hostname string or null
 let lcCssInjected = false;
+let lcAutoTracedIPs      = new Set();  // game server IPs already auto-traced this session
+let lcCurrentGameDetected = null;       // { name, ip, location } while a game trace is active
 
 // ─── SERVICE COLOR DETECTION ──────────────────────────────────
 function lcGetServiceColor(hostname, isp) {
@@ -519,6 +521,53 @@ function lcGetServiceColor(hostname, isp) {
   if (/facebook|instagram|twitter|tiktok|meta\./.test(c)) return '#ec4899';
   if (/apple|icloud/.test(c)) return '#e2e8f0';
   return '#f59e0b';
+}
+
+// ─── GAME SERVER DETECTION ────────────────────────────────────
+function lcDetectGame(hostname, isp) {
+  const h = (hostname || '').toLowerCase();
+  const s = (isp || '').toLowerCase();
+  if (/valve|steamserver|valve\.net/.test(h) || /valve/.test(s)) return 'Steam / Valve';
+  if (/pubg/.test(h)) return 'PUBG';
+  if (/riotgames/.test(h) || /riot/.test(s)) return 'Riot Games';
+  if (/epicgames/.test(h) || /epic/.test(s)) return 'Epic Games';
+  if (/activision|blizzard/.test(h)) return 'Activision / Blizzard';
+  if (/\bea\.com\b|origin\.com/.test(h)) return 'EA / Origin';
+  if (/ubisoft/.test(h)) return 'Ubisoft';
+  if (/roblox/.test(h)) return 'Roblox';
+  if (/mojang|minecraft/.test(h)) return 'Minecraft';
+  if (/4vision/.test(h) || /4vision/.test(s)) return '4Vision';
+  if (/\bgame\b|gameserver/.test(h)) return 'Game Server';
+  return null;
+}
+
+function lcAutoTrace(ip, gameName, geo) {
+  if (lcAutoTracedIPs.has(ip)) return;
+  lcAutoTracedIPs.add(ip);
+  const location = geo ? [geo.city, geo.country].filter(Boolean).join(', ') : ip;
+
+  // Desktop notification
+  try {
+    const body = gameName + ' · ' + ip + ' · ' + location;
+    if (window.Notification) {
+      if (Notification.permission === 'granted') {
+        new Notification('🎮 Game Server Detected', { body: body });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(function(p) {
+          if (p === 'granted') new Notification('🎮 Game Server Detected', { body: body });
+        });
+      }
+    }
+  } catch (_) {}
+
+  // Don't auto-trace if no Electron API or another trace is already active
+  if (!window.aegis || lcTraceActive) return;
+
+  lcClickTrace(ip);
+  // Set AFTER lcClickTrace because lcClearTrace (called inside) would null it
+  lcCurrentGameDetected = { name: gameName, ip: ip, location: location };
+  // Re-render immediately so the game banner shows in loading state
+  lcRenderTracePanel(lcTraceHops, ip, true, false);
 }
 
 // ─── CLICK-TO-TRACE STATE ─────────────────────────────────────
@@ -671,7 +720,8 @@ async function lcBatchReverseDNS(ips) {
 function lcAddConnectionToMap(ip, geo) {
   if (lcConnections.has(ip) || !lcMap || !lcUserLL || !geo || (!geo.lat && !geo.lon)) return;
   const hostname = lcDnsCache.get(ip) || null;
-  const color = lcGetServiceColor(hostname, geo.isp);
+  const gameName = lcDetectGame(hostname, geo.isp);
+  const color = gameName ? '#22c55e' : lcGetServiceColor(hostname, geo.isp);
   const from = lcUserLL;
   const to   = [geo.lat, geo.lon];
   const glow = L.polyline([from, to], { color: color, weight: 5, opacity: 0.12, className: 'lc-line-glow' }).addTo(lcMap);
@@ -694,7 +744,7 @@ function lcAddConnectionToMap(ip, geo) {
     { className: 'pv-popup' }
   );
   line.on('click', function() { lcClickTrace(ip); });
-  lcConnections.set(ip, { marker, line, glow, geo, color });
+  lcConnections.set(ip, { marker, line, glow, geo, color, gameName: gameName || null });
 }
 
 function lcRemoveConnectionFromMap(ip) {
@@ -762,6 +812,7 @@ function lcClickTrace(ip) {
 
 function lcClearTrace() {
   if (window.aegis && window.aegis.stopTraceroute) window.aegis.stopTraceroute();
+  lcCurrentGameDetected = null;
   lcTraceActive = null;
   lcTraceHopCallback = null;
   lcTraceDoneCallback = null;
@@ -794,6 +845,39 @@ function lcRenderTracePanel(hops, ip, loading, done) {
   }
   const statusText = loading ? 'TRACING...' : (done ? 'COMPLETE — ' + sorted.length + ' HOPS' : 'TRACING — ' + sorted.length + ' HOPS');
   const statusColor = done ? '#10b981' : '#f59e0b';
+
+  const isGame = !!(lcCurrentGameDetected && lcCurrentGameDetected.ip === ip);
+  const accentColor = isGame ? '#22c55e' : '#60a5fa';
+
+  // Game banner shown at the top when this is an auto-detected game server trace
+  let gameBannerHTML = '';
+  if (isGame) {
+    gameBannerHTML =
+      '<div style="background:rgba(34,197,94,0.08);border:1px solid #22c55e;border-radius:4px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">' +
+      '<span style="font-size:22px;">🎮</span>' +
+      '<div>' +
+      '<div style="font-family:var(--font-mono);font-size:11px;color:#22c55e;letter-spacing:2px;margin-bottom:2px;">GAME SERVER DETECTED — ' + lcCurrentGameDetected.name.toUpperCase() + '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:11px;color:#64748b;">' + ip + ' · ' + lcCurrentGameDetected.location + '</div>' +
+      '</div></div>';
+  }
+
+  // Game latency footer shown when trace is complete
+  let gameLatencyHTML = '';
+  if (isGame && done) {
+    let lastLatency = null;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (!sorted[i].timeout && sorted[i].latency != null) { lastLatency = sorted[i].latency; break; }
+    }
+    if (lastLatency != null) {
+      const latCol = ntLatColor(lastLatency);
+      gameLatencyHTML =
+        '<div style="margin-top:12px;padding:14px 16px;background:rgba(34,197,94,0.06);border:1px solid #22c55e;border-radius:4px;text-align:center;">' +
+        '<div style="font-family:var(--font-mono);font-size:11px;color:#22c55e;letter-spacing:3px;margin-bottom:6px;">🎮 GAME SERVER LATENCY</div>' +
+        '<div style="font-family:var(--font-title);font-size:36px;color:' + latCol + ';">' + lastLatency + '<span style="font-size:16px;color:var(--text-dim);"> ms</span></div>' +
+        '</div>';
+    }
+  }
+
   const rows = sorted.map(function(h) {
     const latCol = ntLatColor(h.latency);
     const loc = h.geo ? [h.geo.city, h.geo.country].filter(Boolean).join(', ') : '—';
@@ -804,23 +888,26 @@ function lcRenderTracePanel(hops, ip, loading, done) {
       '<td style="font-family:var(--font-mono);font-size:12px;color:' + latCol + ';padding:6px 10px;">' + (h.timeout ? 'TIMEOUT' : (h.latency != null ? h.latency + ' ms' : '—')) + '</td>' +
       '</tr>';
   }).join('');
+
   panel.innerHTML =
-    '<div style="background:var(--bg-card);border:1px solid var(--border);border-top:2px solid #60a5fa;border-radius:4px;padding:16px;margin-bottom:20px;">' +
+    '<div style="background:var(--bg-card);border:1px solid var(--border);border-top:2px solid ' + accentColor + ';border-radius:4px;padding:16px;margin-bottom:20px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-    '<div style="font-family:var(--font-mono);font-size:11px;color:#60a5fa;letter-spacing:2px;">&#9654; TRACEROUTE — ' + ip + '</div>' +
+    '<div style="font-family:var(--font-mono);font-size:11px;color:' + accentColor + ';letter-spacing:2px;">&#9654; TRACEROUTE — ' + ip + '</div>' +
     '<div style="display:flex;gap:10px;align-items:center;">' +
     '<span style="font-family:var(--font-mono);font-size:11px;color:' + statusColor + ';">' + statusText + '</span>' +
     '<button onclick="lcClearTrace()" style="background:transparent;border:1px solid #64748b;color:#64748b;font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;">&#10005; CLOSE</button>' +
     '</div></div>' +
+    gameBannerHTML +
     (sorted.length ?
       '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">' +
       '<thead><tr style="border-bottom:1px solid var(--border);">' +
-      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">HOP</th>' +
-      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">IP ADDRESS</th>' +
-      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">LOCATION</th>' +
-      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">LATENCY</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:' + accentColor + ';letter-spacing:1px;padding:6px 10px;text-align:left;">HOP</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:' + accentColor + ';letter-spacing:1px;padding:6px 10px;text-align:left;">IP ADDRESS</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:' + accentColor + ';letter-spacing:1px;padding:6px 10px;text-align:left;">LOCATION</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:' + accentColor + ';letter-spacing:1px;padding:6px 10px;text-align:left;">LATENCY</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<p style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);margin:0;">Waiting for hops...</p>') +
+    gameLatencyHTML +
     '</div>';
 }
 
@@ -839,10 +926,16 @@ function lcRenderTable() {
     const hostname = lcDnsCache.get(ip) || null;
     const flag     = geo.cc ? lcFlag(geo.cc) : '';
     const location = [flag, geo.city, geo.country].filter(Boolean).join(' ') || '—';
-    return '<tr onclick="lcClickTrace(\'' + ip + '\')" style="cursor:pointer;" onmouseover="this.style.background=\'rgba(245,158,11,0.04)\'" onmouseout="this.style.background=\'transparent\'">' +
+    const isGame   = !!conn.gameName;
+    const rowBg    = isGame ? 'rgba(34,197,94,0.05)' : 'transparent';
+    const rowHover = isGame ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.04)';
+    const gameTag  = isGame
+      ? '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">🎮 ' + conn.gameName + '</span>'
+      : '';
+    return '<tr onclick="lcClickTrace(\'' + ip + '\')" style="cursor:pointer;background:' + rowBg + ';" onmouseover="this.style.background=\'' + rowHover + '\'" onmouseout="this.style.background=\'' + rowBg + '\'">' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:' + color + ';padding:8px 10px;">' +
       '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px;vertical-align:middle;box-shadow:0 0 4px ' + color + ';"></span>' + ip + '</td>' +
-      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + (hostname || ip) + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + (hostname || ip) + gameTag + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + location + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:8px 10px;">' + (geo.isp || '—') + '</td>' +
       '</tr>';
@@ -884,6 +977,15 @@ async function lcPoll() {
     newIPs.forEach(function(ip) {
       const geo = lcGeoCache.get(ip);
       if (geo) lcAddConnectionToMap(ip, geo);
+    });
+    // Auto-detect and trace game servers (only first detection per session)
+    newIPs.forEach(function(ip) {
+      if (lcAutoTracedIPs.has(ip)) return;
+      const hostname = lcDnsCache.get(ip) || null;
+      const geo = lcGeoCache.get(ip) || null;
+      const isp = geo ? (geo.isp || '') : '';
+      const gameName = lcDetectGame(hostname, isp);
+      if (gameName) lcAutoTrace(ip, gameName, geo);
     });
   }
 
