@@ -37,6 +37,7 @@ let lastKnownIP = null;
 let lastVPNState = null;
 let isQuitting = false;
 let incidentLog = [];
+let updater = null;
 
 // Multi-window tracking
 const detachedWindows = new Map(); // page → BrowserWindow
@@ -664,6 +665,19 @@ ipcMain.handle('scan-local-ports', () => {
   })));
 });
 
+// Auto-updates
+ipcMain.handle('check-for-updates', () => {
+  if (!updater) return { dev: true };
+  try { updater.checkForUpdates(); return true; } catch (e) { return false; }
+});
+ipcMain.handle('install-update', () => {
+  if (!updater) return false;
+  try {
+    updater.downloadUpdate().then(() => updater.quitAndInstall(false, true)).catch(() => {});
+    return true;
+  } catch (e) { return false; }
+});
+
 // ─── MULTI-WINDOW ─────────────────────────────────────────────
 function createDetachedWindow(page, opts = {}) {
   const { width = 1000, height = 700, alwaysOnTop = false, x, y } = opts;
@@ -804,15 +818,22 @@ app.whenReady().then(() => {
     mainWindow.on('unmaximize', () => mainWindow.webContents.send('window-maximized', false));
   }
 
-  // Auto-updater (only in production builds)
-  if (!IS_DEV) {
+  // Auto-updater — only runs in packaged builds; gracefully skipped when running unpackaged
+  if (app.isPackaged) {
     try {
-      const { autoUpdater } = require('electron-updater');
-      autoUpdater.checkForUpdatesAndNotify();
-      autoUpdater.on('update-available', () => {
-        if (mainWindow) mainWindow.webContents.send('update-available');
+      const { autoUpdater: au } = require('electron-updater');
+      updater = au;
+      updater.autoDownload = false;
+      updater.on('update-available', (info) => {
+        if (mainWindow) mainWindow.webContents.send('update-available', info.version);
       });
-    } catch (e) { /* silent — updater not critical */ }
+      updater.on('update-not-available', () => {
+        if (mainWindow) mainWindow.webContents.send('update-not-available');
+      });
+      updater.on('error', () => {});
+      setTimeout(() => { try { updater.checkForUpdates(); } catch (_) {} }, 5000);
+      setInterval(() => { try { updater.checkForUpdates(); } catch (_) {} }, 4 * 60 * 60 * 1000);
+    } catch (e) {}
   }
 
   // Keyboard shortcuts (global)

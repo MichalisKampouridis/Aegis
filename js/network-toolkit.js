@@ -509,6 +509,10 @@ let lcDnsCache    = new Map(); // ip → hostname string or null
 let lcCssInjected = false;
 let lcAutoTracedIPs      = new Set();  // game server IPs already auto-traced this session
 let lcCurrentGameDetected = null;       // { name, ip, location } while a game trace is active
+let lcNewConnections = new Map();       // ip → { addedAt: ms, dotTimer: timeoutId|null }
+let lcFirstPoll     = true;            // silences banners on the initial seed poll
+let lcBannerQueue   = [];              // queued { ip, hostname, geo } items
+let lcBannerShowing = false;           // true while a banner is on screen
 
 // ─── SERVICE COLOR DETECTION ──────────────────────────────────
 function lcGetServiceColor(hostname, isp) {
@@ -521,6 +525,21 @@ function lcGetServiceColor(hostname, isp) {
   if (/facebook|instagram|twitter|tiktok|meta\./.test(c)) return '#ec4899';
   if (/apple|icloud/.test(c)) return '#e2e8f0';
   return '#f59e0b';
+}
+
+// ─── SERVICE NAME DETECTION ───────────────────────────────────
+function lcGetServiceName(hostname, isp) {
+  const c = ((hostname || '') + ' ' + (isp || '')).toLowerCase();
+  if (/google|youtube|googleapis|gstatic|ggpht|googlevideo/.test(c)) return 'Google';
+  if (/microsoft|windows\.net|azure|msft|live\.com|outlook|xbox/.test(c)) return 'Microsoft';
+  if (/cloudflare/.test(c)) return 'Cloudflare';
+  if (/amazon|amazonaws|aws\./.test(c)) return 'Amazon AWS';
+  if (/facebook|instagram|meta\./.test(c)) return 'Meta';
+  if (/twitter|twimg/.test(c)) return 'Twitter / X';
+  if (/tiktok/.test(c)) return 'TikTok';
+  if (/apple|icloud/.test(c)) return 'Apple';
+  if (/github/.test(c)) return 'GitHub';
+  return lcDetectGame(hostname, isp);
 }
 
 // ─── GAME SERVER DETECTION ────────────────────────────────────
@@ -596,7 +615,10 @@ function lcInjectCSS() {
   const style = document.createElement('style');
   style.textContent =
     '.lc-line-dash{stroke-dasharray:12,6;animation:lcDashFlow 1.2s linear infinite;}' +
-    '@keyframes lcDashFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-54}}';
+    '@keyframes lcDashFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-54}}' +
+    '.lc-new-dot{animation:lcAmberPulse 1s ease-in-out infinite;}' +
+    '@keyframes lcAmberPulse{0%,100%{box-shadow:0 0 6px #f59e0b,0 0 14px rgba(245,158,11,0.4)}50%{box-shadow:0 0 18px #f59e0b,0 0 36px rgba(245,158,11,0.7)}}' +
+    '@keyframes lcBannerIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}';
   document.head.appendChild(style);
 }
 
@@ -666,6 +688,47 @@ function lcPlaceYouMarker(ll, label) {
   lcMap.setView(ll, 3);
 }
 
+function lcEnqueueBanner(ip, hostname, geo) {
+  lcBannerQueue.push({ ip: ip, hostname: hostname, geo: geo });
+  if (!lcBannerShowing) lcProcessBannerQueue();
+}
+
+function lcProcessBannerQueue() {
+  if (!lcBannerQueue.length) { lcBannerShowing = false; return; }
+  lcBannerShowing = true;
+  const item = lcBannerQueue.shift();
+  const ip = item.ip;
+  const hostname = item.hostname;
+  const geo = item.geo;
+
+  const mapContainer = document.getElementById('lc-map');
+  if (!mapContainer || !mapContainer.parentNode) {
+    setTimeout(lcProcessBannerQueue, 0);
+    return;
+  }
+  const serviceName = lcGetServiceName(hostname, geo ? geo.isp : '');
+  const location = geo ? [geo.city, geo.country].filter(Boolean).join(', ') || '—' : '—';
+  const isp = geo ? (geo.isp || '—') : '—';
+  const domain = hostname || ip;
+  const serviceLabel = serviceName
+    ? '<span style="color:#fbbf24;font-weight:bold;">' + serviceName + '</span>'
+    : '<span style="color:#f59e0b;">UNKNOWN SERVICE</span>';
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:rgba(245,158,11,0.1);border:1px solid #f59e0b;border-radius:4px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;animation:lcBannerIn 0.3s ease;';
+  banner.innerHTML =
+    '<span style="font-size:16px;flex-shrink:0;">🆕</span>' +
+    '<div style="flex:1;font-family:var(--font-mono);">' +
+    '<span style="color:#f59e0b;font-size:11px;letter-spacing:2px;">NEW CONNECTION</span>&nbsp;&nbsp;' + serviceLabel +
+    '<div style="color:var(--text-dim);font-size:11px;margin-top:2px;">' + domain + ' &nbsp;·&nbsp; ' + location + ' &nbsp;·&nbsp; ' + isp + '</div>' +
+    '</div>' +
+    '<button onclick="this.parentNode.remove();lcProcessBannerQueue();" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0;">×</button>';
+  mapContainer.parentNode.insertBefore(banner, mapContainer);
+  setTimeout(function() {
+    if (banner.parentNode) banner.remove();
+    lcProcessBannerQueue();
+  }, 3000);
+}
+
 async function lcBatchGeolocate(ips) {
   const toFetch = ips.filter(function(ip) { return !lcGeoCache.has(ip); });
   if (!toFetch.length) return;
@@ -717,37 +780,71 @@ async function lcBatchReverseDNS(ips) {
   }));
 }
 
-function lcAddConnectionToMap(ip, geo) {
-  if (lcConnections.has(ip) || !lcMap || !lcUserLL || !geo || (!geo.lat && !geo.lon)) return;
+function lcAddConnectionToMap(ip, geo, isNew) {
+  if (lcConnections.has(ip) || !lcMap) return;
   const hostname = lcDnsCache.get(ip) || null;
-  const gameName = lcDetectGame(hostname, geo.isp);
-  const color = gameName ? '#22c55e' : lcGetServiceColor(hostname, geo.isp);
-  const from = lcUserLL;
-  const to   = [geo.lat, geo.lon];
-  const glow = L.polyline([from, to], { color: color, weight: 5, opacity: 0.12, className: 'lc-line-glow' }).addTo(lcMap);
-  const line = L.polyline([from, to], { color: color, weight: 2, opacity: 0.85, className: 'lc-line-dash' }).addTo(lcMap);
-  const dotIcon = L.divIcon({
-    className: '',
-    html: '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';border:1px solid ' + color + ';box-shadow:0 0 8px ' + color + ',0 0 16px ' + color + '40;cursor:pointer;"></div>',
-    iconSize: [10, 10], iconAnchor: [5, 5]
-  });
-  const marker = L.marker(to, { icon: dotIcon }).addTo(lcMap).bindPopup(
-    '<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;min-width:200px;background:#0d1526;padding:10px;border-radius:3px;">' +
-    '<div style="color:' + color + ';font-size:13px;font-weight:bold;margin-bottom:2px;">' + (hostname || ip) + '</div>' +
-    (hostname ? '<div style="color:#64748b;margin-bottom:6px;">' + ip + '</div>' : '<div style="margin-bottom:6px;"></div>') +
-    (geo.city ? '<div style="color:#64748b;margin-bottom:3px;">CITY: <span style="color:#e2e8f0;">' + geo.city + '</span></div>' : '') +
-    '<div style="color:#64748b;margin-bottom:3px;">COUNTRY: <span style="color:#e2e8f0;">' + lcFlag(geo.cc) + ' ' + geo.country + '</span></div>' +
-    (geo.isp ? '<div style="color:#64748b;margin-bottom:3px;">ISP: <span style="color:#e2e8f0;">' + geo.isp + '</span></div>' : '') +
-    '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #1e2d4a;">' +
-    '<button onclick="lcClickTrace(\'' + ip + '\')" style="background:transparent;border:1px solid ' + color + ';color:' + color + ';font-family:IBM Plex Mono,monospace;font-size:11px;padding:4px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;">&#9654; TRACE ROUTE</button>' +
-    '</div></div>',
-    { className: 'pv-popup' }
-  );
-  line.on('click', function() { lcClickTrace(ip); });
-  lcConnections.set(ip, { marker, line, glow, geo, color, gameName: gameName || null });
+  const isp = geo ? (geo.isp || '') : '';
+  const gameName = lcDetectGame(hostname, isp);
+  const color = gameName ? '#22c55e' : lcGetServiceColor(hostname, isp);
+
+  let marker = null;
+  let line   = null;
+  let glow   = null;
+
+  // Only draw map elements when we have valid coordinates
+  if (geo && (geo.lat || geo.lon)) {
+    const to = [geo.lat, geo.lon];
+    // Draw line from user only when our own location is known
+    if (lcUserLL) {
+      const from = lcUserLL;
+      glow = L.polyline([from, to], { color: color, weight: 5, opacity: 0.12, className: 'lc-line-glow' }).addTo(lcMap);
+      line = L.polyline([from, to], { color: color, weight: 2, opacity: 0.85, className: 'lc-line-dash' }).addTo(lcMap);
+    }
+    const normalDotHTML = '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';border:1px solid ' + color + ';box-shadow:0 0 8px ' + color + ',0 0 16px ' + color + '40;cursor:pointer;"></div>';
+    const initialHTML = isNew
+      ? '<div class="lc-new-dot" style="width:12px;height:12px;border-radius:50%;background:#f59e0b;border:2px solid #fbbf24;cursor:pointer;"></div>'
+      : normalDotHTML;
+    const dotIcon = L.divIcon({
+      className: '',
+      html: initialHTML,
+      iconSize: isNew ? [12, 12] : [10, 10],
+      iconAnchor: isNew ? [6, 6] : [5, 5]
+    });
+    marker = L.marker(to, { icon: dotIcon }).addTo(lcMap).bindPopup(
+      '<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;min-width:200px;background:#0d1526;padding:10px;border-radius:3px;">' +
+      '<div style="color:' + color + ';font-size:13px;font-weight:bold;margin-bottom:2px;">' + (hostname || ip) + '</div>' +
+      (hostname ? '<div style="color:#64748b;margin-bottom:6px;">' + ip + '</div>' : '<div style="margin-bottom:6px;"></div>') +
+      (geo.city ? '<div style="color:#64748b;margin-bottom:3px;">CITY: <span style="color:#e2e8f0;">' + geo.city + '</span></div>' : '') +
+      '<div style="color:#64748b;margin-bottom:3px;">COUNTRY: <span style="color:#e2e8f0;">' + lcFlag(geo.cc) + ' ' + geo.country + '</span></div>' +
+      (geo.isp ? '<div style="color:#64748b;margin-bottom:3px;">ISP: <span style="color:#e2e8f0;">' + geo.isp + '</span></div>' : '') +
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #1e2d4a;">' +
+      '<button onclick="lcClickTrace(\'' + ip + '\')" style="background:transparent;border:1px solid ' + color + ';color:' + color + ';font-family:IBM Plex Mono,monospace;font-size:11px;padding:4px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;">&#9654; TRACE ROUTE</button>' +
+      '</div></div>',
+      { className: 'pv-popup' }
+    );
+    if (line) line.on('click', function() { lcClickTrace(ip); });
+
+    if (isNew) {
+      const dotTimer = setTimeout(function() {
+        if (!lcConnections.has(ip)) return;
+        marker.setIcon(L.divIcon({ className: '', html: normalDotHTML, iconSize: [10, 10], iconAnchor: [5, 5] }));
+        const nc = lcNewConnections.get(ip);
+        if (nc) nc.dotTimer = null;
+      }, 10000);
+      lcNewConnections.set(ip, { addedAt: Date.now(), dotTimer });
+    }
+  } else if (isNew) {
+    // No geo coordinates — connection tracked in table/counter only, no map marker
+    lcNewConnections.set(ip, { addedAt: Date.now(), dotTimer: null });
+  }
+
+  lcConnections.set(ip, { marker: marker, line: line, glow: glow, geo: geo || null, color: color, gameName: gameName || null });
 }
 
 function lcRemoveConnectionFromMap(ip) {
+  const nc = lcNewConnections.get(ip);
+  if (nc && nc.dotTimer) clearTimeout(nc.dotTimer);
+  lcNewConnections.delete(ip);
   const conn = lcConnections.get(ip);
   if (!conn) return;
   if (lcMap) {
@@ -840,7 +937,7 @@ function lcRenderTracePanel(hops, ip, loading, done) {
   let sorted = hops.slice().sort(function(a, b) { return a.hopNum - b.hopNum; });
   if (done) {
     let end = sorted.length;
-    while (end > 0 && sorted[end - 1].timeout && !sorted[end - 1].ip) end--;
+    while (end > 0 && sorted[end - 1].timeout) end--;
     sorted = sorted.slice(0, end);
   }
   const statusText = loading ? 'TRACING...' : (done ? 'COMPLETE — ' + sorted.length + ' HOPS' : 'TRACING — ' + sorted.length + ' HOPS');
@@ -927,15 +1024,30 @@ function lcRenderTable() {
     const flag     = geo.cc ? lcFlag(geo.cc) : '';
     const location = [flag, geo.city, geo.country].filter(Boolean).join(' ') || '—';
     const isGame   = !!conn.gameName;
-    const rowBg    = isGame ? 'rgba(34,197,94,0.05)' : 'transparent';
-    const rowHover = isGame ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.04)';
-    const gameTag  = isGame
-      ? '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">🎮 ' + conn.gameName + '</span>'
+    const nc = lcNewConnections.get(ip);
+    const ageMs = nc ? (Date.now() - nc.addedAt) : Infinity;
+    const isNewRecent = ageMs < 10000;
+    const isNewBadge  = ageMs < 30000;
+    const serviceName = lcGetServiceName(hostname, geo.isp || '');
+    const rowBg    = isNewRecent ? 'rgba(245,158,11,0.08)' : (isGame ? 'rgba(34,197,94,0.05)' : 'transparent');
+    const rowHover = isNewRecent ? 'rgba(245,158,11,0.14)' : (isGame ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.04)');
+    const newBadge = isNewBadge
+      ? '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(245,158,11,0.2);border:1px solid #f59e0b;color:#f59e0b;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:1px;vertical-align:middle;">NEW</span>'
       : '';
+    let serviceTag;
+    if (isGame) {
+      serviceTag = '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">🎮 ' + conn.gameName + '</span>';
+    } else if (serviceName) {
+      serviceTag = '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text-dim);padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">' + serviceName + '</span>';
+    } else if (isNewBadge) {
+      serviceTag = '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">UNKNOWN SERVICE</span>';
+    } else {
+      serviceTag = '';
+    }
     return '<tr onclick="lcClickTrace(\'' + ip + '\')" style="cursor:pointer;background:' + rowBg + ';" onmouseover="this.style.background=\'' + rowHover + '\'" onmouseout="this.style.background=\'' + rowBg + '\'">' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:' + color + ';padding:8px 10px;">' +
-      '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px;vertical-align:middle;box-shadow:0 0 4px ' + color + ';"></span>' + ip + '</td>' +
-      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + (hostname || ip) + gameTag + '</td>' +
+      '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px;vertical-align:middle;box-shadow:0 0 4px ' + color + ';"></span>' + ip + newBadge + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + (hostname || ip) + serviceTag + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + location + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:8px 10px;">' + (geo.isp || '—') + '</td>' +
       '</tr>';
@@ -974,20 +1086,24 @@ async function lcPoll() {
   const newIPs = currentIPs.filter(function(ip) { return !lcConnections.has(ip) && !lcIsPrivate(ip); });
   if (newIPs.length) {
     await Promise.all([lcBatchGeolocate(newIPs), lcBatchReverseDNS(newIPs)]);
+    // Always register the connection — map elements are skipped gracefully if geo/location unavailable
+    // isNew is false on the very first poll (pre-existing connections get no badge/amber dot)
     newIPs.forEach(function(ip) {
-      const geo = lcGeoCache.get(ip);
-      if (geo) lcAddConnectionToMap(ip, geo);
+      const geo = lcGeoCache.get(ip) || null;
+      lcAddConnectionToMap(ip, geo, !lcFirstPoll);
     });
-    // Auto-detect and trace game servers (only first detection per session)
     newIPs.forEach(function(ip) {
-      if (lcAutoTracedIPs.has(ip)) return;
       const hostname = lcDnsCache.get(ip) || null;
       const geo = lcGeoCache.get(ip) || null;
+      // Skip banners on the very first poll — those are pre-existing connections, not new arrivals
+      if (!lcFirstPoll) lcEnqueueBanner(ip, hostname, geo);
+      if (lcAutoTracedIPs.has(ip)) return;
       const isp = geo ? (geo.isp || '') : '';
       const gameName = lcDetectGame(hostname, isp);
       if (gameName) lcAutoTrace(ip, gameName, geo);
     });
   }
+  lcFirstPoll = false;
 
   const counter = document.getElementById('lc-counter');
   if (counter) counter.textContent = String(lcConnections.size);
@@ -1020,6 +1136,11 @@ function lcStop() {
   lcClearTrace();
   lcMonitoring = false;
   if (lcPollTimer) { clearInterval(lcPollTimer); lcPollTimer = null; }
+  lcNewConnections.forEach(function(nc) { if (nc.dotTimer) clearTimeout(nc.dotTimer); });
+  lcNewConnections.clear();
+  lcFirstPoll = true;
+  lcBannerQueue = [];
+  lcBannerShowing = false;
   const btn = document.getElementById('lc-toggle-btn');
   if (btn) { btn.textContent = '▶ START MONITORING'; btn.style.borderColor = '#f59e0b'; btn.style.color = '#f59e0b'; }
   const status = document.getElementById('lc-status');

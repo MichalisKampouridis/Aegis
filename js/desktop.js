@@ -467,4 +467,55 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
   });
 });
 
+// ─── AUTO-UPDATER UI ──────────────────────────────────────────
+function showUpdateBanner(version) {
+  const banner = document.getElementById('update-banner');
+  const versionEl = document.getElementById('update-version');
+  if (!banner) return;
+  if (versionEl) versionEl.textContent = 'Aegis v' + version;
+  banner.style.display = 'flex';
+}
+
+function dismissUpdateBanner() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function updateNow() {
+  if (!IS_ELECTRON || !window.aegis.installUpdate) return;
+  const btn = document.querySelector('#update-banner button');
+  if (btn) btn.textContent = 'DOWNLOADING...';
+  window.aegis.installUpdate();
+}
+
+async function checkForUpdatesManual() {
+  if (!IS_ELECTRON) return;
+  const btn = document.getElementById('check-updates-btn');
+  const statusEl = document.getElementById('about-update-status');
+  if (btn) { btn.textContent = '🔄 CHECKING...'; btn.disabled = true; }
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-dim);">Checking for updates...</span>';
+  const result = await window.aegis.checkForUpdates();
+  if (btn) { btn.textContent = '🔄 CHECK FOR UPDATES'; btn.disabled = false; }
+  if (result && result.dev) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#64748b;">Development build — update checking disabled</span>';
+  }
+}
+
+if (IS_ELECTRON && window.aegis.onUpdateAvailable) {
+  window.aegis.onUpdateAvailable(function(version) {
+    showUpdateBanner(version);
+    const statusEl = document.getElementById('about-update-status');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#f59e0b;">🔄 Update available: v' + version + ' — <a onclick="showUpdateBanner(\'' + version + '\')" style="color:#f59e0b;cursor:pointer;text-decoration:underline;">Show banner</a></span>';
+  });
+}
+
+if (IS_ELECTRON && window.aegis.onUpdateNotAvailable) {
+  window.aegis.onUpdateNotAvailable(function() {
+    const statusEl = document.getElementById('about-update-status');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#10b981;">✓ Up to date</span>';
+    const btn = document.getElementById('check-updates-btn');
+    if (btn) { btn.textContent = '✓ UP TO DATE'; setTimeout(function() { btn.textContent = '🔄 CHECK FOR UPDATES'; }, 3000); }
+  });
+}
+
 console.log('Aegis Desktop Integration loaded. Electron:', IS_ELECTRON);

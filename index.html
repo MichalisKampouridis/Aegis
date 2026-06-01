@@ -57,6 +57,18 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     UPDATE BANNER
+════════════════════════════════════════════════════════════ -->
+<div id="update-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:8887; background:#0d1526; border-bottom:1px solid #f59e0b; padding:8px 16px; align-items:center; gap:12px;">
+  <span style="font-size:15px; flex-shrink:0;">🔄</span>
+  <div style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#e2e8f0; letter-spacing:1px;">
+    UPDATE AVAILABLE — <span id="update-version" style="color:#f59e0b; font-weight:bold;">Aegis</span> is ready to download
+  </div>
+  <button onclick="updateNow()" style="background:rgba(245,158,11,0.15);border:1px solid #f59e0b;color:#f59e0b;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 14px;border-radius:2px;cursor:pointer;letter-spacing:1px;">UPDATE NOW</button>
+  <button onclick="dismissUpdateBanner()" style="background:transparent;border:1px solid #374151;color:#64748b;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 14px;border-radius:2px;cursor:pointer;letter-spacing:1px;margin-left:4px;">LATER</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      CUSTOM TITLE BAR (Electron desktop only)
 ════════════════════════════════════════════════════════════ -->
 <div id="title-bar" class="title-bar">
@@ -805,9 +817,11 @@
             <div>DEVELOPER: <span style="color:var(--text-primary);">Michalis K. — Cybersecurity Student</span></div>
             <div>CREDITS: <span style="color:var(--text-dim); font-size:12px;">Built with Electron · Claude AI · NVD API · HaveIBeenPwned · ipwho.is</span></div>
             <div style="margin-top:12px; margin-bottom:4px; font-size:12px; color:var(--text-dim); line-height:1.8; max-width:520px;">Aegis is a personal security intelligence platform built for cybersecurity professionals. Real-time network monitoring, threat intelligence, and AI-powered briefings.</div>
+            <div id="about-update-status" style="margin-top:10px; font-size:12px; color:var(--text-dim);"></div>
             <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
               <button onclick="if(window.aegis) window.aegis.openExternal('https://github.com/Draus69/Aegis')" class="aegis-btn" style="font-size:11px; padding:8px 16px;">&#128279; GITHUB REPO</button>
               <button onclick="if(window.aegis) window.aegis.openExternal('https://www.linkedin.com/in/michalis-kampouridis-704051397/')" class="aegis-btn" style="font-size:11px; padding:8px 16px;">&#128101; LINKEDIN</button>
+              <button onclick="checkForUpdatesManual()" class="aegis-btn" id="check-updates-btn" style="font-size:11px; padding:8px 16px;">&#128260; CHECK FOR UPDATES</button>
             </div>
             <div style="margin-top:18px; font-size:11px; color:var(--text-dim); opacity:0.6;">© 2026 Michalis K.</div>
           </div>

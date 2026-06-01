@@ -104,5 +104,11 @@ contextBridge.exposeInMainWorld('aegis', {
   },
   onWindowMaximized: (callback) => {
     ipcRenderer.on('window-maximized', (_, isMax) => callback(isMax));
-  }
+  },
+
+  // ── Auto-updates ──────────────────────────────────────────────
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_, version) => callback(version)),
+  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', () => callback())
 });
