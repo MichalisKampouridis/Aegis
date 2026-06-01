@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src https:; frame-src https://www.openstreetmap.org;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src https:;">
 <title>Aegis — Personal Security Intelligence Dashboard</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="node_modules/leaflet/dist/leaflet.css">
 <script>
 (function() {
   var l = document.createElement('link');
@@ -590,6 +591,7 @@
             <button data-nt-tab="whois"       onclick="ntSwitchTab('whois')"       style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">DNS LOOKUP</button>
             <button data-nt-tab="speed-test"  onclick="ntSwitchTab('speed-test')"  style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">SPEED TEST</button>
             <button data-nt-tab="mac-lookup"  onclick="ntSwitchTab('mac-lookup')"  style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">MAC LOOKUP</button>
+            <button data-nt-tab="pathviz"     onclick="ntSwitchTab('pathviz')"     style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">PATH VISUALIZER</button>
           </div>
 
           <!-- ─ TRACEROUTE ──────────────────────────────────────── -->
@@ -637,6 +639,19 @@
             </div>
             <div id="nt-mac-result" style="margin-bottom:24px;"><p class="placeholder-text">Enter a MAC address to identify the manufacturer.</p></div>
             <div id="nt-mac-table"></div>
+          </div>
+
+          <!-- ─ PATH VISUALIZER ────────────────────────────────── -->
+          <div id="nt-panel-pathviz" class="nt-panel" style="display:none; padding:24px;">
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); margin-bottom:16px; line-height:1.7;">Real system traceroute via OS command · each hop geolocated and plotted on a live world map · suspicious routing flagged in red.</div>
+            <div class="input-row" style="margin-bottom:16px;">
+              <input type="text" id="nt-pathviz-input" class="aegis-input" placeholder="Enter domain or IP (e.g. temu.com, 8.8.8.8)..." onkeydown="if(event.key==='Enter') ntRunPathViz()">
+              <button id="nt-pathviz-btn" onclick="ntRunPathViz()" class="aegis-btn" style="border-color:#f59e0b; color:#f59e0b;">&#9673; TRACE</button>
+              <button id="nt-pathviz-clear-btn" onclick="ntClearPathViz()" class="aegis-btn" style="border-color:#1e2d4a; color:#64748b;">&#10005; CLEAR</button>
+            </div>
+            <div id="nt-pathviz-status" style="font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:2px; margin-bottom:12px; min-height:18px;"></div>
+            <div id="nt-pathviz-map" style="height:420px; border:1px solid var(--border); border-radius:4px; background:#0a0f1e; margin-bottom:20px;"></div>
+            <div id="nt-pathviz-hops" style="display:flex; flex-direction:column; gap:6px;"></div>
           </div>
 
         </div>
@@ -813,6 +828,7 @@
   </main>
 </div>
 
+<script src="node_modules/leaflet/dist/leaflet.js"></script>
 <script src="js/sounds.js"></script>
 <script src="js/radar.js"></script>
 <script src="js/main.js"></script>

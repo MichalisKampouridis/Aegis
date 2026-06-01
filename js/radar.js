@@ -289,14 +289,20 @@ async function radarTakeSample() {
       ip = ipJson.ip || null;
     } catch (_) {}
 
-    // ISP + VPN via ipwho.is with the real IP, through proxy for geo lookup
+    // ISP + VPN + geo via ipwho.is with the real IP, through proxy
+    let lat = null, lon = null, city = null, country = null, cc = null;
     if (ip) {
       try {
         const geoRes  = await fetch('https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://ipwho.is/' + ip));
         const geoData = await geoRes.json();
         if (geoData && geoData.success !== false) {
-          isp   = geoData.connection && geoData.connection.isp ? geoData.connection.isp : null;
-          isVPN = !!(geoData.security && (geoData.security.vpn || geoData.security.tor || geoData.security.proxy));
+          isp     = geoData.connection && geoData.connection.isp ? geoData.connection.isp : null;
+          isVPN   = !!(geoData.security && (geoData.security.vpn || geoData.security.tor || geoData.security.proxy));
+          lat     = geoData.latitude     || null;
+          lon     = geoData.longitude    || null;
+          city    = geoData.city         || null;
+          country = geoData.country      || null;
+          cc      = geoData.country_code || null;
         }
       } catch (_) {}
     }
@@ -329,7 +335,12 @@ async function radarTakeSample() {
       ipChanged:  ipChanged,
       ispChanged: ispChanged,
       dnsChanged: dnsChanged,
-      vpnDropped: vpnDropped
+      vpnDropped: vpnDropped,
+      lat:        lat,
+      lon:        lon,
+      city:       city,
+      country:    country,
+      cc:         cc
     };
 
     radarHistory.push(reading);
@@ -361,9 +372,9 @@ async function radarTakeSample() {
 
 async function radarMeasureLatency() {
   const targets = [
-    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://1.1.1.1/cdn-cgi/trace'),
-    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://8.8.8.8/generate_204'),
-    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=' + encodeURIComponent('https://www.google.com/generate_204')
+    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://1.1.1.1/cdn-cgi/trace',
+    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://8.8.8.8/generate_204',
+    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://www.google.com/generate_204'
   ];
   const results = await Promise.all(targets.map(async function(url) {
     const t0 = performance.now();

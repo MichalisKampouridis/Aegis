@@ -219,7 +219,7 @@ function setTrayIcon(status) {
 // ─── NOTIFICATIONS ────────────────────────────────────────────
 function showTrayNotification(title, body) {
   if (!Notification.isSupported()) return;
-  new Notification({ title, body, icon: path.join(ICON_PATH, 'icon.png') }).show();
+  new Notification({ title, body, icon: path.join(ICON_PATH, 'icon.png'), silent: true }).show();
 }
 
 // ─── NETWORK MONITORING ───────────────────────────────────────
@@ -479,6 +479,122 @@ ipcMain.handle('restart-monitor', () => { startMonitoring(); return true; });
 
 // Window state
 ipcMain.handle('is-maximized', () => mainWindow ? mainWindow.isMaximized() : false);
+
+// ─── TRACEROUTE ───────────────────────────────────────────────
+function parseTracerouteLine(line, isWin) {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  if (isWin) {
+    const hopMatch = trimmed.match(/^(\d+)\s+/);
+    if (!hopMatch) return null;
+    const hopNum = parseInt(hopMatch[1]);
+    if (hopNum < 1 || hopNum > 30) return null;
+
+    const ipMatch = trimmed.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    const ip = ipMatch ? ipMatch[1] : null;
+    const isTimeout = !ip && trimmed.includes('*');
+
+    const latencies = [];
+    const latRe = /(?:<1|(\d+))\s+ms/gi;
+    let m;
+    while ((m = latRe.exec(trimmed)) !== null) {
+      latencies.push(m[1] ? parseInt(m[1]) : 1);
+    }
+    const avgLatency = latencies.length
+      ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+      : null;
+
+    return { hopNum, ip, latency: avgLatency, timeout: isTimeout };
+  } else {
+    const hopMatch = trimmed.match(/^(\d+)\s+/);
+    if (!hopMatch) return null;
+    const hopNum = parseInt(hopMatch[1]);
+    if (hopNum < 1 || hopNum > 30) return null;
+
+    const ipMatch = trimmed.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    const ip = ipMatch ? ipMatch[1] : null;
+    const isTimeout = !ip && (trimmed.includes('* * *') || trimmed.includes('!H') || trimmed.includes('!N'));
+
+    const latencies = [];
+    const latRe = /(\d+\.?\d*)\s+ms/gi;
+    let m;
+    while ((m = latRe.exec(trimmed)) !== null) {
+      latencies.push(parseFloat(m[1]));
+    }
+    const avgLatency = latencies.length
+      ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+      : null;
+
+    return { hopNum, ip, latency: avgLatency, timeout: isTimeout };
+  }
+}
+
+let tracerouteProcess = null;
+
+ipcMain.on('start-traceroute', (event, target) => {
+  if (tracerouteProcess) {
+    try { tracerouteProcess.kill(); } catch (_) {}
+    tracerouteProcess = null;
+  }
+
+  const { spawn } = require('child_process');
+  const isWin = process.platform === 'win32';
+
+  const launchTraceroute = (resolvedTarget) => {
+    const cmd  = isWin ? 'tracert' : 'traceroute';
+    const args = isWin
+      ? ['-d', '-h', '20', '-w', '1000', resolvedTarget]
+      : ['-m', '20', '-w', '2', '-q', '2', resolvedTarget];
+
+    let buffer = '';
+
+    tracerouteProcess = spawn(cmd, args, { shell: isWin });
+    tracerouteProcess.stdout.setEncoding('utf8');
+
+    function processChunk(chunk) {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      lines.forEach(line => {
+        const hop = parseTracerouteLine(line, isWin);
+        if (hop) {
+          try { event.sender.send('traceroute-hop', hop); } catch (_) {}
+        }
+      });
+    }
+
+    tracerouteProcess.stdout.on('data', processChunk);
+    if (tracerouteProcess.stderr) {
+      tracerouteProcess.stderr.setEncoding('utf8');
+      tracerouteProcess.stderr.on('data', processChunk);
+    }
+
+    tracerouteProcess.on('close', (code) => {
+      tracerouteProcess = null;
+      try { event.sender.send('traceroute-done', { code }); } catch (_) {}
+    });
+    tracerouteProcess.on('error', (err) => {
+      tracerouteProcess = null;
+      try { event.sender.send('traceroute-done', { error: err.message }); } catch (_) {}
+    });
+  };
+
+  const dns = require('dns').promises;
+  dns.resolve4(target)
+    .then(addresses => {
+      if (addresses.length > 0) target = addresses[0];
+    })
+    .catch(() => {})
+    .finally(() => launchTraceroute(target));
+});
+
+ipcMain.on('stop-traceroute', () => {
+  if (tracerouteProcess) {
+    try { tracerouteProcess.kill(); } catch (_) {}
+    tracerouteProcess = null;
+  }
+});
 
 // Local port scanner — uses Node's net module, no external API
 ipcMain.handle('scan-local-ports', () => {

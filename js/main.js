@@ -758,6 +758,48 @@ function exportIPPDF() {
   setTimeout(function() { printWindow.print(); }, 500);
 }
 
+// ─── IP INVESTIGATOR — LEAFLET MAP ───────────────────────────
+let _ipLeafletMap = null;
+
+function initIPLeafletMap(lat, lon) {
+  if (_ipLeafletMap) {
+    try { _ipLeafletMap.remove(); } catch (_) {}
+    _ipLeafletMap = null;
+  }
+  const container = document.getElementById('ip-leaflet-map');
+  if (!container || typeof L === 'undefined') return;
+
+  _ipLeafletMap = L.map('ip-leaflet-map', {
+    center: [lat, lon],
+    zoom: 8,
+    zoomControl: true,
+    attributionControl: false
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(_ipLeafletMap);
+
+  const icon = L.divIcon({
+    className: '',
+    html: '<div style="width:18px;height:18px;border-radius:50%;background:#f59e0b;border:2px solid #fcd34d;box-shadow:0 0 12px #f59e0b,0 0 24px rgba(245,158,11,0.5);"></div>',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
+  L.marker([lat, lon], { icon }).addTo(_ipLeafletMap);
+
+  L.circle([lat, lon], {
+    radius: 25000,
+    color: '#f59e0b',
+    fillColor: '#f59e0b',
+    fillOpacity: 0.06,
+    weight: 1,
+    opacity: 0.5,
+    className: 'ip-pulse-ring'
+  }).addTo(_ipLeafletMap);
+}
+
 async function investigateIP() {
   const input = document.getElementById('ip-input').value.trim();
   const resultDiv = document.getElementById('ip-result');
@@ -888,11 +930,15 @@ async function investigateIP() {
       '<div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">' +
       '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">GEOLOCATION MAP</div>' +
       (hasValidCoords
-        ? '<iframe width="100%" height="320" frameborder="0" scrolling="no" style="border-radius:3px; border:1px solid var(--border); filter:grayscale(0.3) invert(0.9) hue-rotate(180deg);" src="https://www.openstreetmap.org/export/embed.html?bbox=' + (d.lon-2) + ',' + (d.lat-2) + ',' + (d.lon+2) + ',' + (d.lat+2) + '&layer=mapnik&marker=' + d.lat + ',' + d.lon + '"></iframe>'
+        ? '<div id="ip-leaflet-map" style="height:320px; border-radius:3px; border:1px solid var(--border); background:#0a0f1e;"></div>'
         : '<div style="border:1px solid #f59e0b; border-left:3px solid #ef4444; border-radius:3px; padding:16px; background:rgba(239,68,68,0.08); font-family:var(--font-mono); font-size:13px; color:#ef4444; line-height:1.8;">Unable to resolve — no geolocation data found for this address. Please check the domain or IP and try again.</div>'
       ) +
       '</div></div>' +
-      '<div class="result-label" style="margin-top:10px;">Data sourced from ip-api.com � Threat scoring by Aegis Intelligence Engine � ' + new Date().toUTCString() + '</div>';
+      '<div class="result-label" style="margin-top:10px;">Data sourced from ipwho.is — Threat scoring by Aegis Intelligence Engine — ' + new Date().toUTCString() + '</div>';
+
+    if (hasValidCoords) {
+      setTimeout(function() { initIPLeafletMap(d.lat, d.lon); }, 50);
+    }
 
   } catch (error) {
     resultDiv.innerHTML = '<p class="placeholder-text">Error: ' + error.message + '</p>';

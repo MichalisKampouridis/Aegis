@@ -75,6 +75,12 @@ contextBridge.exposeInMainWorld('aegis', {
   saveCVEExplanations: (items) => ipcRenderer.invoke('db-save-cve-explanations', items),
   clearCVEExplanations: () => ipcRenderer.invoke('db-clear-cve-explanations'),
 
+  // ── Traceroute ────────────────────────────────────────────────
+  startTraceroute: (target) => ipcRenderer.send('start-traceroute', target),
+  stopTraceroute: () => ipcRenderer.send('stop-traceroute'),
+  onTracerouteHop: (callback) => ipcRenderer.on('traceroute-hop', (_, hop) => callback(hop)),
+  onTracerouteDone: (callback) => ipcRenderer.on('traceroute-done', (_, result) => callback(result)),
+
   // ── Multi-window ─────────────────────────────────────────────
   openDetachedWindow: (page) => ipcRenderer.invoke('open-detached-window', page),
   setSocPreset: (preset) => ipcRenderer.invoke('set-soc-preset', preset),
