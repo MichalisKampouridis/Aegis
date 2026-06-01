@@ -40,7 +40,7 @@ Built with Electron. Runs on Windows, macOS, and Linux.
 
 ## Download
 
-[→ Latest release](https://github.com/Draus69/Aegis/releases/latest)
+[→ Latest release](https://github.com/MichalisKampouridis/Aegis/releases/latest)
 
 ---
 
