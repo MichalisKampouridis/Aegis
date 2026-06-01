@@ -7,6 +7,7 @@ const NT_PROXY = 'https://aegis-proxy.ka-mixalis99.workers.dev/?url=';
 let ntActiveTab = 'traceroute';
 
 function ntSwitchTab(tab) {
+  if (ntActiveTab === 'liveconn' && tab !== 'liveconn' && typeof lcStop === 'function') lcStop();
   ntActiveTab = tab;
   try { localStorage.setItem('nt-active-tab', tab); } catch(_) {}
   document.querySelectorAll('[data-nt-tab]').forEach(function(btn) {
@@ -18,8 +19,7 @@ function ntSwitchTab(tab) {
   document.querySelectorAll('.nt-panel').forEach(function(p) { p.style.display = 'none'; });
   const panel = document.getElementById('nt-panel-' + tab);
   if (panel) panel.style.display = 'block';
-  // Leaflet needs the container visible before it can measure dimensions
-  if (tab === 'pathviz') setTimeout(ntEnsurePathVizMap, 50);
+  if (tab === 'liveconn') setTimeout(lcEnsureMap, 50);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -494,391 +494,443 @@ function ntRenderMACTable() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB 5 — NETWORK PATH VISUALIZER
+// TAB 5 — LIVE CONNECTIONS
 // ═══════════════════════════════════════════════════════════════
-const NT_PV_PROXY  = 'https://aegis-proxy.ka-mixalis99.workers.dev/?url=';
-const NT_PV_SUSPICIOUS_COUNTRIES = new Set(['CN','RU','KP','IR','SY','BY']);
+const LC_PROXY = 'https://aegis-proxy.ka-mixalis99.workers.dev/?url=';
 
-let ntPathVizMap       = null;
-let ntPathVizRunning   = false;
-let ntPathVizHops      = [];
-let ntPathVizUserLL    = null;
-let ntPathVizListeners = false;
-let ntPathVizTarget    = '';
+let lcMonitoring  = false;
+let lcPollTimer   = null;
+let lcMap         = null;
+let lcUserLL      = null;
+let lcUserMarker  = null;
+let lcConnections = new Map(); // ip → { marker, line, glow, geo, color }
+let lcGeoCache    = new Map(); // ip → geo data
+let lcDnsCache    = new Map(); // ip → hostname string or null
+let lcCssInjected = false;
 
-// Private IP ranges
-function ntPvIsPrivate(ip) {
-  if (!ip) return true;
-  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|::1|fc|fd)/i.test(ip);
+// ─── SERVICE COLOR DETECTION ──────────────────────────────────
+function lcGetServiceColor(hostname, isp) {
+  const c = ((hostname || '') + ' ' + (isp || '')).toLowerCase();
+  if (/google|youtube|googleapis|gstatic|ggpht|googlevideo/.test(c)) return '#ef4444';
+  if (/microsoft|windows\.net|azure|msft|live\.com|outlook|xbox/.test(c)) return '#3b82f6';
+  if (/cloudflare/.test(c)) return '#f97316';
+  if (/amazon|amazonaws|aws\./.test(c)) return '#a855f7';
+  if (/steam|valve|epicgames|roblox|4vision/.test(c)) return '#22c55e';
+  if (/facebook|instagram|twitter|tiktok|meta\./.test(c)) return '#ec4899';
+  if (/apple|icloud/.test(c)) return '#e2e8f0';
+  return '#f59e0b';
 }
 
-// Country flag emoji from 2-letter code
-function ntPvFlag(cc) {
-  if (!cc || cc.length !== 2) return '';
-  const offset = 0x1F1E6 - 65;
-  return String.fromCodePoint(cc.charCodeAt(0) + offset) + String.fromCodePoint(cc.charCodeAt(1) + offset);
-}
+// ─── CLICK-TO-TRACE STATE ─────────────────────────────────────
+let lcTraceActive       = null;
+let lcTraceHopDots      = [];
+let lcTraceHops         = [];
+let lcTraceSeenHops     = new Set();
+let lcTraceListenersSet = false;
+let lcTraceHopCallback  = null;
+let lcTraceDoneCallback = null;
 
-// In-session geo cache — avoids re-querying the same IP within one app session
-const ntPvGeoCache = Object.create(null);
-
-// Geolocate a public IP via the Cloudflare proxy → ipwho.is
-async function ntPvGeolocate(ip) {
-  if (!ip || ntPvIsPrivate(ip)) return null;
-  if (ntPvGeoCache[ip]) return ntPvGeoCache[ip];
-  await new Promise(function(r) { setTimeout(r, 300); });
-  try {
-    const r = await fetch(NT_PV_PROXY + 'https://ipwho.is/' + ip,
-      { signal: AbortSignal.timeout(6000) });
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (!d.success && d.success !== undefined) return null;
-    const geo = {
-      lat:     d.latitude  || d.lat || 0,
-      lon:     d.longitude || d.lon || 0,
-      country: d.country       || '',
-      cc:      d.country_code  || '',
-      isp:     (d.connection && d.connection.isp) ? d.connection.isp : (d.isp || ''),
-      city:    d.city          || ''
-    };
-    ntPvGeoCache[ip] = geo;
-    return geo;
-  } catch (_) { return null; }
-}
-
-// Initialize the Leaflet map (called lazily when the tab is shown)
-function ntEnsurePathVizMap() {
-  if (ntPathVizMap) {
-    ntPathVizMap.invalidateSize();
-    return;
-  }
-  const container = document.getElementById('nt-pathviz-map');
-  if (!container || typeof L === 'undefined') return;
-
-  ntPathVizMap = L.map('nt-pathviz-map', {
-    center: [20, 0],
-    zoom: 2,
-    minZoom: 2,
-    zoomControl: true,
-    attributionControl: true
+function lcSetupTraceListeners() {
+  if (lcTraceListenersSet || !window.aegis || !window.aegis.onTracerouteHop) return;
+  lcTraceListenersSet = true;
+  window.aegis.onTracerouteHop(function(hop) {
+    if (lcTraceHopCallback) lcTraceHopCallback(hop);
   });
+  window.aegis.onTracerouteDone(function() {
+    if (lcTraceDoneCallback) lcTraceDoneCallback();
+  });
+}
 
+function lcInjectCSS() {
+  if (lcCssInjected) return;
+  lcCssInjected = true;
+  const style = document.createElement('style');
+  style.textContent =
+    '.lc-line-dash{stroke-dasharray:12,6;animation:lcDashFlow 1.2s linear infinite;}' +
+    '@keyframes lcDashFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-54}}';
+  document.head.appendChild(style);
+}
+
+function lcFlag(cc) {
+  if (!cc || cc.length !== 2) return '';
+  const o = 0x1F1E6 - 65;
+  return String.fromCodePoint(cc.charCodeAt(0) + o) + String.fromCodePoint(cc.charCodeAt(1) + o);
+}
+
+function lcIsPrivate(ip) {
+  return !ip || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|0\.0\.0\.0|169\.254\.|::1$|fe80:)/i.test(ip);
+}
+
+function lcEnsureMap() {
+  if (lcMap) { lcMap.invalidateSize(); return; }
+  const container = document.getElementById('lc-map');
+  if (!container || typeof L === 'undefined') return;
+  lcInjectCSS();
+  lcMap = L.map('lc-map', { center: [20, 0], zoom: 2, minZoom: 2 });
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · © <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
-  }).addTo(ntPathVizMap);
-
-  // Register IPC listeners once
-  if (!ntPathVizListeners && window.aegis && window.aegis.onTracerouteHop) {
-    window.aegis.onTracerouteHop(function(hop) {
-      if (ntPathVizRunning) ntPvHandleHop(hop);
-    });
-    window.aegis.onTracerouteDone(function() {
-      ntPvDone();
-    });
-    ntPathVizListeners = true;
-  }
+  }).addTo(lcMap);
 }
 
-// Create a custom glowing marker for a hop
-function ntPvMakeIcon(hopNum, color) {
-  return L.divIcon({
-    className: '',
-    html: '<div style="width:22px;height:22px;border-radius:50%;background:' + color + ';border:2px solid ' + color + ';box-shadow:0 0 10px ' + color + ',0 0 20px rgba(245,158,11,0.3);display:flex;align-items:center;justify-content:center;font-family:IBM Plex Mono,monospace;font-size:9px;font-weight:bold;color:#020818;">' + hopNum + '</div>',
-    iconSize:   [22, 22],
-    iconAnchor: [11, 11]
-  });
-}
-
-// Draw an animated amber (or red) line between two LatLng points
-function ntPvDrawLine(from, to, color) {
-  if (!ntPathVizMap || !from || !to) return;
-
-  // Glow underlay (wider, dimmer)
-  L.polyline([from, to], {
-    color: color,
-    weight: 5,
-    opacity: 0.15,
-    className: 'pv-line-glow'
-  }).addTo(ntPathVizMap);
-
-  // Animated dashed line (on top)
-  const line = L.polyline([from, to], {
-    color: color,
-    weight: 2,
-    opacity: 0.9,
-    className: 'pv-line-dash'
-  }).addTo(ntPathVizMap);
-
-  return line;
-}
-
-// Add a hop to the map and hop-list panel
-async function ntPvHandleHop(hop) {
-  // Avoid duplicates (traceroute may re-send)
-  if (ntPathVizHops.some(function(h) { return h.hopNum === hop.hopNum; })) return;
-  ntPathVizHops.push(hop);
-
-  const hopsEl = document.getElementById('nt-pathviz-hops');
-
-  if (hop.timeout || !hop.ip) {
-    // Timeout hop — add to list only
-    ntPvRenderHopRow(hop, null, hopsEl);
-    return;
-  }
-
-  // Private IP — no map dot, but show in list
-  if (ntPvIsPrivate(hop.ip)) {
-    ntPvRenderHopRow(hop, { private: true }, hopsEl);
-    return;
-  }
-
-  // Geolocate
-  const geo = await ntPvGeolocate(hop.ip);
-  if (!geo || (geo.lat === 0 && geo.lon === 0)) {
-    ntPvRenderHopRow(hop, null, hopsEl);
-    return;
-  }
-
-  const suspicious = NT_PV_SUSPICIOUS_COUNTRIES.has(geo.cc);
-  const color = suspicious ? '#ef4444' : '#f59e0b';
-  const hopLL = [geo.lat, geo.lon];
-
-  // Draw line from previous known point
-  const prevLL = ntPvLastKnownLL();
-  ntPvDrawLine(prevLL, hopLL, color);
-
-  // Marker
-  const icon = ntPvMakeIcon(hop.hopNum, color);
-  const marker = L.marker(hopLL, { icon }).addTo(ntPathVizMap);
-  marker.bindPopup(ntPvPopupHTML(hop, geo, suspicious), { className: 'pv-popup' });
-
-  // Pulse ring
-  L.circle(hopLL, {
-    radius: 80000,
-    color: color,
-    fillColor: color,
-    fillOpacity: 0.04,
-    weight: 1,
-    opacity: 0.4,
-    className: 'pv-pulse-ring'
-  }).addTo(ntPathVizMap);
-
-  // Store last known LL
-  hop._ll = hopLL;
-  hop._geo = geo;
-  hop._suspicious = suspicious;
-
-  ntPvRenderHopRow(hop, geo, hopsEl);
-
-  // Fly map to keep all hops in view
-  try {
-    const allLL = ntPathVizHops.filter(function(h) { return h._ll; }).map(function(h) { return h._ll; });
-    if (ntPathVizUserLL) allLL.unshift(ntPathVizUserLL);
-    if (allLL.length > 1) ntPathVizMap.flyToBounds(L.latLngBounds(allLL), { padding: [40, 40], duration: 0.6 });
-  } catch (_) {}
-
-  ntPvUpdateStatus('HOP ' + hop.hopNum + ' — ' + hop.ip + ' — ' + geo.city + ', ' + ntPvFlag(geo.cc) + ' ' + geo.country);
-}
-
-// Find the last LatLng we have a geo fix for
-function ntPvLastKnownLL() {
-  for (let i = ntPathVizHops.length - 1; i >= 0; i--) {
-    if (ntPathVizHops[i]._ll) return ntPathVizHops[i]._ll;
-  }
-  return ntPathVizUserLL || [20, 0];
-}
-
-// Build popup HTML for a hop marker
-function ntPvPopupHTML(hop, geo, suspicious) {
-  const col = suspicious ? '#ef4444' : '#f59e0b';
-  return '<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;min-width:200px;background:#0d1526;padding:12px;border-radius:3px;">' +
-    '<div style="color:' + col + ';font-size:13px;font-weight:bold;margin-bottom:8px;">HOP ' + hop.hopNum + (suspicious ? ' ⚠ SUSPICIOUS' : '') + '</div>' +
-    '<div style="color:#64748b;margin-bottom:3px;">IP: <span style="color:#e2e8f0;">' + hop.ip + '</span></div>' +
-    (geo.city ? '<div style="color:#64748b;margin-bottom:3px;">CITY: <span style="color:#e2e8f0;">' + geo.city + '</span></div>' : '') +
-    '<div style="color:#64748b;margin-bottom:3px;">COUNTRY: <span style="color:#e2e8f0;">' + ntPvFlag(geo.cc) + ' ' + geo.country + '</span></div>' +
-    (geo.isp ? '<div style="color:#64748b;margin-bottom:3px;">ISP: <span style="color:#e2e8f0;">' + geo.isp + '</span></div>' : '') +
-    '<div style="color:#64748b;">LATENCY: <span style="color:' + col + ';">' + (hop.latency != null ? hop.latency + ' ms' : 'N/A') + '</span></div>' +
-    '</div>';
-}
-
-// Render a single hop row in the hop list
-function ntPvRenderHopRow(hop, geo, container) {
-  if (!container) return;
-  const suspicious = hop._suspicious;
-  const col = suspicious ? '#ef4444' : (hop.timeout ? '#64748b' : '#f59e0b');
-  const latStr = hop.latency != null ? hop.latency + ' ms' : '—';
-
-  let geoInfo = '';
-  if (hop.timeout || !hop.ip) {
-    geoInfo = '<span style="color:#64748b;">REQUEST TIMED OUT</span>';
-  } else if (geo && geo.private) {
-    geoInfo = '<span style="color:#a78bfa;">PRIVATE NETWORK</span>';
-  } else if (geo) {
-    geoInfo = ntPvFlag(geo.cc) + ' <span style="color:#e2e8f0;">' + geo.country + '</span>' +
-      (geo.isp ? ' <span style="color:#64748b;font-size:11px;">· ' + geo.isp + '</span>' : '');
-    if (suspicious) geoInfo += ' <span style="color:#ef4444;margin-left:6px;">⚠ SUSPICIOUS ROUTING</span>';
-  } else {
-    geoInfo = '<span style="color:#64748b;">GEO UNAVAILABLE</span>';
-  }
-
-  const row = document.createElement('div');
-  row.dataset.hopNum = String(hop.hopNum);
-  row.style.cssText = 'display:grid;grid-template-columns:60px 130px 1fr 80px;gap:8px;align-items:center;padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-left:3px solid ' + col + ';border-radius:3px;font-family:IBM Plex Mono,monospace;font-size:12px;';
-  row.innerHTML =
-    '<span style="color:' + col + ';">HOP ' + hop.hopNum + '</span>' +
-    '<span style="color:' + col + ';word-break:break-all;">' + (hop.ip || '*') + '</span>' +
-    '<span>' + geoInfo + '</span>' +
-    '<span style="color:' + col + ';text-align:right;">' + latStr + '</span>';
-  container.appendChild(row);
-}
-
-function ntPvUpdateStatus(msg) {
-  const el = document.getElementById('nt-pathviz-status');
-  if (el) el.textContent = msg;
-}
-
-function ntPvDone() {
-  ntPathVizRunning = false;
-  const btn = document.getElementById('nt-pathviz-btn');
-  if (btn) { btn.textContent = '⬤ TRACE'; btn.style.borderColor = '#f59e0b'; btn.style.color = '#f59e0b'; }
-
-  // Find the last non-timeout hop (has a real IP)
-  let lastValidIdx = -1;
-  for (let i = ntPathVizHops.length - 1; i >= 0; i--) {
-    if (!ntPathVizHops[i].timeout && ntPathVizHops[i].ip) { lastValidIdx = i; break; }
-  }
-
-  // Remove trailing timed-out rows from the table; keep mid-route ones
-  const hopsEl = document.getElementById('nt-pathviz-hops');
-  if (hopsEl && lastValidIdx >= 0 && lastValidIdx < ntPathVizHops.length - 1) {
-    const trailingNums = new Set(
-      ntPathVizHops.slice(lastValidIdx + 1).map(function(h) { return h.hopNum; })
-    );
-    hopsEl.querySelectorAll('[data-hop-num]').forEach(function(row) {
-      if (trailingNums.has(Number(row.dataset.hopNum))) row.remove();
-    });
-  }
-
-  const hopCount = lastValidIdx >= 0 ? lastValidIdx + 1 : ntPathVizHops.length;
-  const suspiciousCount = ntPathVizHops.filter(function(h) { return h._suspicious; }).length;
-  ntPvUpdateStatus('TRACE COMPLETE — ' + hopCount + ' HOPS · ' + suspiciousCount + ' SUSPICIOUS');
-
-  // Desktop notification — only when at least 3 hops were geolocated
-  const geoHops = ntPathVizHops.filter(function(h) { return h._geo; });
-  if (geoHops.length >= 3 && window.aegis && window.aegis.notify) {
-    const lastCountry = geoHops[geoHops.length - 1]._geo.country || 'unknown';
-    window.aegis.notify(
-      'Path Trace Complete',
-      'Route to ' + ntPathVizTarget + ' mapped — ' + hopCount + ' hops, final destination: ' + lastCountry
-    );
-  }
-}
-
-// Resolve the user's own map position.
-// Primary: last radar reading already has the user's real public IP geolocated correctly.
-// Fallback: fetch the real public IP from ipify then geolocate it via the proxy.
-async function ntPvResolveUserLocation() {
+async function lcResolveUserLocation() {
   if (window.aegis && window.aegis.getRadarReadings) {
     try {
       const readings = await window.aegis.getRadarReadings(1);
       const last = readings && readings[readings.length - 1];
       if (last && last.lat && last.lon) {
-        const label = [last.cc ? ntPvFlag(last.cc) : '', last.city, last.country]
-          .filter(Boolean).join(' ') || last.ip || '';
+        const label = [last.cc ? lcFlag(last.cc) : '', last.city, last.country].filter(Boolean).join(' ') || last.ip || '';
         return { ll: [last.lat, last.lon], label };
       }
     } catch (_) {}
   }
-  // Fallback: get the user's real public IP then geolocate it directly
   try {
-    const ipRes  = await fetch('https://api64.ipify.org?format=json', { signal: AbortSignal.timeout(5000) });
+    const ipRes = await fetch('https://api64.ipify.org?format=json', { signal: AbortSignal.timeout(5000) });
     const ipJson = await ipRes.json();
-    const selfIP = ipJson && ipJson.ip;
-    if (selfIP) {
-      const geo = await ntPvGeolocate(selfIP);
-      if (geo && (geo.lat || geo.lon)) {
-        const label = [geo.cc ? ntPvFlag(geo.cc) : '', geo.city, geo.country]
-          .filter(Boolean).join(' ') || selfIP;
-        return { ll: [geo.lat, geo.lon], label };
+    if (ipJson && ipJson.ip) {
+      const r = await fetch(LC_PROXY + 'https://ipwho.is/' + ipJson.ip, { signal: AbortSignal.timeout(6000) });
+      const d = await r.json();
+      if (d.latitude && d.longitude) {
+        return { ll: [d.latitude, d.longitude], label: [d.city, d.country].filter(Boolean).join(', ') || ipJson.ip };
       }
     }
   } catch (_) {}
   return null;
 }
 
-// Run a traceroute
-async function ntRunPathViz() {
-  const input = document.getElementById('nt-pathviz-input').value.trim();
-  if (!input) return;
-
-  if (ntPathVizRunning) {
-    // Stop current trace
-    if (window.aegis && window.aegis.stopTraceroute) window.aegis.stopTraceroute();
-    ntPvDone();
-    return;
-  }
-
-  if (!window.aegis || !window.aegis.startTraceroute) {
-    ntPvUpdateStatus('ERROR: traceroute not available in this environment');
-    return;
-  }
-
-  ntPathVizTarget = input;
-  ntEnsurePathVizMap();
-  ntClearPathViz();
-
-  ntPathVizRunning = true;
-  const btn = document.getElementById('nt-pathviz-btn');
-  if (btn) { btn.textContent = '■ STOP'; btn.style.borderColor = '#ef4444'; btn.style.color = '#ef4444'; }
-  ntPvUpdateStatus('RESOLVING TARGET...');
-
-  // Add header row to hop list
-  const hopsEl = document.getElementById('nt-pathviz-hops');
-  if (hopsEl) {
-    hopsEl.innerHTML = '<div style="display:grid;grid-template-columns:60px 130px 1fr 80px;gap:8px;padding:6px 12px;font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--amber);letter-spacing:2px;border-bottom:1px solid var(--border);margin-bottom:6px;">' +
-      '<span>HOP</span><span>IP ADDRESS</span><span>LOCATION</span><span style="text-align:right;">LATENCY</span></div>';
-  }
-
-  // Get user location first so we can draw the first line from "here"
-  const userLoc = await ntPvResolveUserLocation();
-  if (userLoc) {
-    ntPathVizUserLL = userLoc.ll;
-    const youIcon = L.divIcon({
-      className: '',
-      html: '<div style="width:18px;height:18px;border-radius:50%;background:#10b981;border:2px solid #34d399;box-shadow:0 0 10px #10b981,0 0 20px rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:bold;color:#020818;">YOU</div>',
-      iconSize: [18, 18],
-      iconAnchor: [9, 9]
-    });
-    L.marker(ntPathVizUserLL, { icon: youIcon }).addTo(ntPathVizMap)
-      .bindPopup('<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;background:#0d1526;padding:10px;border-radius:3px;"><div style="color:#10b981;margin-bottom:4px;">YOUR LOCATION</div><div>' + userLoc.label + '</div></div>', { className: 'pv-popup' });
-    ntPathVizMap.setView(ntPathVizUserLL, 4);
-  }
-
-  ntPvUpdateStatus('RUNNING TRACEROUTE TO ' + input.toUpperCase() + '...');
-  window.aegis.startTraceroute(input);
+function lcPlaceYouMarker(ll, label) {
+  if (!lcMap) return;
+  if (lcUserMarker) { lcMap.removeLayer(lcUserMarker); lcUserMarker = null; }
+  const icon = L.divIcon({
+    className: '',
+    html: '<div style="width:18px;height:18px;border-radius:50%;background:#10b981;border:2px solid #34d399;box-shadow:0 0 10px #10b981,0 0 20px rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:bold;color:#020818;">YOU</div>',
+    iconSize: [18, 18], iconAnchor: [9, 9]
+  });
+  lcUserMarker = L.marker(ll, { icon }).addTo(lcMap)
+    .bindPopup(
+      '<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;background:#0d1526;padding:10px;border-radius:3px;">' +
+      '<div style="color:#10b981;margin-bottom:4px;">YOUR LOCATION</div><div>' + (label || '') + '</div></div>',
+      { className: 'pv-popup' }
+    );
+  lcUserLL = ll;
+  lcMap.setView(ll, 3);
 }
 
-// Clear map and hop list
-function ntClearPathViz() {
-  ntPathVizHops = [];
-  ntPathVizUserLL = null;
-  const hopsEl = document.getElementById('nt-pathviz-hops');
-  if (hopsEl) hopsEl.innerHTML = '';
-  ntPvUpdateStatus('');
-  if (ntPathVizMap) {
-    ntPathVizMap.eachLayer(function(layer) {
-      if (!(layer instanceof L.TileLayer)) ntPathVizMap.removeLayer(layer);
-    });
-    ntPathVizMap.setView([20, 0], 2);
+async function lcBatchGeolocate(ips) {
+  const toFetch = ips.filter(function(ip) { return !lcGeoCache.has(ip); });
+  if (!toFetch.length) return;
+  try {
+    const r = await fetch(
+      LC_PROXY + 'http://ip-api.com/batch?fields=status,query,country,countryCode,city,isp,lat,lon',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toFetch.map(function(ip) { return { query: ip }; })),
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+    if (r.ok) {
+      const results = await r.json();
+      results.forEach(function(d) {
+        if (d.status === 'success' && d.query) {
+          lcGeoCache.set(d.query, {
+            lat: d.lat || 0, lon: d.lon || 0,
+            country: d.country || '', cc: d.countryCode || '',
+            city: d.city || '', isp: d.isp || ''
+          });
+        }
+      });
+    }
+  } catch (_) {}
+}
+
+async function lcBatchReverseDNS(ips) {
+  const toFetch = ips.filter(function(ip) { return !lcDnsCache.has(ip); });
+  if (!toFetch.length) return;
+  await Promise.all(toFetch.map(async function(ip) {
+    const reversed = ip.split('.').reverse().join('.');
+    try {
+      const r = await fetch(
+        'https://dns.google/resolve?name=' + reversed + '.in-addr.arpa&type=PTR',
+        { signal: AbortSignal.timeout(4000) }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const answer = d.Answer && d.Answer[0];
+        lcDnsCache.set(ip, answer ? answer.data.replace(/\.$/, '') : null);
+      } else {
+        lcDnsCache.set(ip, null);
+      }
+    } catch (_) {
+      lcDnsCache.set(ip, null);
+    }
+  }));
+}
+
+function lcAddConnectionToMap(ip, geo) {
+  if (lcConnections.has(ip) || !lcMap || !lcUserLL || !geo || (!geo.lat && !geo.lon)) return;
+  const hostname = lcDnsCache.get(ip) || null;
+  const color = lcGetServiceColor(hostname, geo.isp);
+  const from = lcUserLL;
+  const to   = [geo.lat, geo.lon];
+  const glow = L.polyline([from, to], { color: color, weight: 5, opacity: 0.12, className: 'lc-line-glow' }).addTo(lcMap);
+  const line = L.polyline([from, to], { color: color, weight: 2, opacity: 0.85, className: 'lc-line-dash' }).addTo(lcMap);
+  const dotIcon = L.divIcon({
+    className: '',
+    html: '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';border:1px solid ' + color + ';box-shadow:0 0 8px ' + color + ',0 0 16px ' + color + '40;cursor:pointer;"></div>',
+    iconSize: [10, 10], iconAnchor: [5, 5]
+  });
+  const marker = L.marker(to, { icon: dotIcon }).addTo(lcMap).bindPopup(
+    '<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;min-width:200px;background:#0d1526;padding:10px;border-radius:3px;">' +
+    '<div style="color:' + color + ';font-size:13px;font-weight:bold;margin-bottom:2px;">' + (hostname || ip) + '</div>' +
+    (hostname ? '<div style="color:#64748b;margin-bottom:6px;">' + ip + '</div>' : '<div style="margin-bottom:6px;"></div>') +
+    (geo.city ? '<div style="color:#64748b;margin-bottom:3px;">CITY: <span style="color:#e2e8f0;">' + geo.city + '</span></div>' : '') +
+    '<div style="color:#64748b;margin-bottom:3px;">COUNTRY: <span style="color:#e2e8f0;">' + lcFlag(geo.cc) + ' ' + geo.country + '</span></div>' +
+    (geo.isp ? '<div style="color:#64748b;margin-bottom:3px;">ISP: <span style="color:#e2e8f0;">' + geo.isp + '</span></div>' : '') +
+    '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #1e2d4a;">' +
+    '<button onclick="lcClickTrace(\'' + ip + '\')" style="background:transparent;border:1px solid ' + color + ';color:' + color + ';font-family:IBM Plex Mono,monospace;font-size:11px;padding:4px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;">&#9654; TRACE ROUTE</button>' +
+    '</div></div>',
+    { className: 'pv-popup' }
+  );
+  line.on('click', function() { lcClickTrace(ip); });
+  lcConnections.set(ip, { marker, line, glow, geo, color });
+}
+
+function lcRemoveConnectionFromMap(ip) {
+  const conn = lcConnections.get(ip);
+  if (!conn) return;
+  if (lcMap) {
+    if (conn.line   && lcMap.hasLayer(conn.line))   lcMap.removeLayer(conn.line);
+    if (conn.glow   && lcMap.hasLayer(conn.glow))   lcMap.removeLayer(conn.glow);
+    if (conn.marker && lcMap.hasLayer(conn.marker)) lcMap.removeLayer(conn.marker);
   }
+  lcConnections.delete(ip);
+}
+
+function lcClickTrace(ip) {
+  if (!window.aegis) return;
+  lcSetupTraceListeners();
+  lcClearTrace();
+  lcTraceActive = ip;
+  lcTraceHops = [];
+  lcTraceSeenHops = new Set();
+  lcRenderTracePanel([], ip, true, false);
+  if (window.aegis.stopTraceroute) window.aegis.stopTraceroute();
+
+  lcTraceHopCallback = async function(hop) {
+    if (lcTraceActive !== ip) return;
+    if (lcTraceSeenHops.has(hop.hopNum)) return;
+    lcTraceSeenHops.add(hop.hopNum);
+    let geo = null;
+    if (hop.ip && !lcIsPrivate(hop.ip)) {
+      await lcBatchGeolocate([hop.ip]);
+      geo = lcGeoCache.get(hop.ip) || null;
+    }
+    const hopData = { hopNum: hop.hopNum, ip: hop.ip, latency: hop.latency, timeout: hop.timeout, geo };
+    lcTraceHops.push(hopData);
+    if (geo && lcMap && (geo.lat || geo.lon)) {
+      const latCol = ntLatColor(hop.latency);
+      const hopIcon = L.divIcon({
+        className: '',
+        html: '<div style="width:8px;height:8px;border-radius:50%;background:#60a5fa;border:1px solid #93c5fd;box-shadow:0 0 6px #60a5fa;cursor:pointer;"></div>',
+        iconSize: [8, 8], iconAnchor: [4, 4]
+      });
+      const hopCity = [geo.city, geo.country].filter(Boolean).join(', ') || 'Unknown';
+      const hopDot = L.marker([geo.lat, geo.lon], { icon: hopIcon }).addTo(lcMap).bindPopup(
+        '<div style="font-family:IBM Plex Mono,monospace;font-size:12px;color:#e2e8f0;background:#0d1526;padding:10px;border-radius:3px;">' +
+        '<div style="color:#60a5fa;font-size:13px;margin-bottom:4px;">HOP ' + hop.hopNum + '</div>' +
+        '<div style="color:#e2e8f0;margin-bottom:2px;">' + (hop.ip || '—') + '</div>' +
+        '<div style="color:#64748b;margin-bottom:4px;">' + hopCity + '</div>' +
+        '<div style="color:' + latCol + ';">' + (hop.latency != null ? hop.latency + ' ms' : 'TIMEOUT') + '</div>' +
+        '</div>',
+        { className: 'pv-popup' }
+      );
+      lcTraceHopDots.push(hopDot);
+    }
+    lcRenderTracePanel(lcTraceHops, ip, false, false);
+  };
+
+  lcTraceDoneCallback = function() {
+    lcTraceHopCallback = null;
+    lcTraceDoneCallback = null;
+    lcRenderTracePanel(lcTraceHops, ip, false, true);
+  };
+
+  window.aegis.startTraceroute(ip);
+}
+
+function lcClearTrace() {
+  if (window.aegis && window.aegis.stopTraceroute) window.aegis.stopTraceroute();
+  lcTraceActive = null;
+  lcTraceHopCallback = null;
+  lcTraceDoneCallback = null;
+  lcTraceSeenHops = new Set();
+  if (lcMap) {
+    lcTraceHopDots.forEach(function(dot) {
+      if (lcMap.hasLayer(dot)) lcMap.removeLayer(dot);
+    });
+  }
+  lcTraceHopDots = [];
+  lcTraceHops = [];
+  const panel = document.getElementById('lc-trace-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+function lcRenderTracePanel(hops, ip, loading, done) {
+  let panel = document.getElementById('lc-trace-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'lc-trace-panel';
+    const mapEl = document.getElementById('lc-map');
+    if (mapEl && mapEl.parentNode) mapEl.parentNode.insertBefore(panel, mapEl.nextSibling);
+  }
+  panel.style.display = 'block';
+  let sorted = hops.slice().sort(function(a, b) { return a.hopNum - b.hopNum; });
+  if (done) {
+    let end = sorted.length;
+    while (end > 0 && sorted[end - 1].timeout && !sorted[end - 1].ip) end--;
+    sorted = sorted.slice(0, end);
+  }
+  const statusText = loading ? 'TRACING...' : (done ? 'COMPLETE — ' + sorted.length + ' HOPS' : 'TRACING — ' + sorted.length + ' HOPS');
+  const statusColor = done ? '#10b981' : '#f59e0b';
+  const rows = sorted.map(function(h) {
+    const latCol = ntLatColor(h.latency);
+    const loc = h.geo ? [h.geo.city, h.geo.country].filter(Boolean).join(', ') : '—';
+    return '<tr style="border-bottom:1px solid rgba(30,45,74,0.4);">' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:#64748b;padding:6px 10px;">HOP ' + h.hopNum + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:6px 10px;">' + (h.ip || '* * *') + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:6px 10px;">' + loc + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:' + latCol + ';padding:6px 10px;">' + (h.timeout ? 'TIMEOUT' : (h.latency != null ? h.latency + ' ms' : '—')) + '</td>' +
+      '</tr>';
+  }).join('');
+  panel.innerHTML =
+    '<div style="background:var(--bg-card);border:1px solid var(--border);border-top:2px solid #60a5fa;border-radius:4px;padding:16px;margin-bottom:20px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+    '<div style="font-family:var(--font-mono);font-size:11px;color:#60a5fa;letter-spacing:2px;">&#9654; TRACEROUTE — ' + ip + '</div>' +
+    '<div style="display:flex;gap:10px;align-items:center;">' +
+    '<span style="font-family:var(--font-mono);font-size:11px;color:' + statusColor + ';">' + statusText + '</span>' +
+    '<button onclick="lcClearTrace()" style="background:transparent;border:1px solid #64748b;color:#64748b;font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;">&#10005; CLOSE</button>' +
+    '</div></div>' +
+    (sorted.length ?
+      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">' +
+      '<thead><tr style="border-bottom:1px solid var(--border);">' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">HOP</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">IP ADDRESS</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">LOCATION</th>' +
+      '<th style="font-family:var(--font-mono);font-size:10px;color:#60a5fa;letter-spacing:1px;padding:6px 10px;text-align:left;">LATENCY</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);margin:0;">Waiting for hops...</p>') +
+    '</div>';
+}
+
+function lcRenderTable() {
+  const el = document.getElementById('lc-table');
+  if (!el) return;
+  if (!lcConnections.size) {
+    el.innerHTML = '<p class="placeholder-text">No active connections detected.</p>';
+    return;
+  }
+  const rows = Array.from(lcConnections.entries()).map(function(entry) {
+    const ip       = entry[0];
+    const conn     = entry[1];
+    const geo      = conn.geo || {};
+    const color    = conn.color || '#f59e0b';
+    const hostname = lcDnsCache.get(ip) || null;
+    const flag     = geo.cc ? lcFlag(geo.cc) : '';
+    const location = [flag, geo.city, geo.country].filter(Boolean).join(' ') || '—';
+    return '<tr onclick="lcClickTrace(\'' + ip + '\')" style="cursor:pointer;" onmouseover="this.style.background=\'rgba(245,158,11,0.04)\'" onmouseout="this.style.background=\'transparent\'">' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:' + color + ';padding:8px 10px;">' +
+      '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px;vertical-align:middle;box-shadow:0 0 4px ' + color + ';"></span>' + ip + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + (hostname || ip) + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + location + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:8px 10px;">' + (geo.isp || '—') + '</td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML =
+    '<div style="background:var(--bg-card);border:1px solid var(--border);border-top:2px solid var(--amber);border-radius:4px;padding:16px;">' +
+    '<div style="font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:2px;margin-bottom:12px;">ACTIVE CONNECTION LOG — CLICK ROW TO TRACE</div>' +
+    '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">' +
+    '<thead><tr style="border-bottom:1px solid var(--border);">' +
+    '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">IP ADDRESS</th>' +
+    '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">DOMAIN</th>' +
+    '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">LOCATION</th>' +
+    '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">ISP</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '</table></div></div>';
+}
+
+async function lcPoll() {
+  if (!lcMonitoring) return;
+  let currentIPs = [];
+  try {
+    if (window.aegis && window.aegis.getActiveConnections) {
+      currentIPs = await window.aegis.getActiveConnections();
+    }
+  } catch (_) {}
+
+  const currentSet = new Set(currentIPs);
+
+  // Remove gone connections
+  Array.from(lcConnections.keys()).forEach(function(ip) {
+    if (!currentSet.has(ip)) lcRemoveConnectionFromMap(ip);
+  });
+
+  // Geolocate and reverse-DNS new connections in parallel
+  const newIPs = currentIPs.filter(function(ip) { return !lcConnections.has(ip) && !lcIsPrivate(ip); });
+  if (newIPs.length) {
+    await Promise.all([lcBatchGeolocate(newIPs), lcBatchReverseDNS(newIPs)]);
+    newIPs.forEach(function(ip) {
+      const geo = lcGeoCache.get(ip);
+      if (geo) lcAddConnectionToMap(ip, geo);
+    });
+  }
+
+  const counter = document.getElementById('lc-counter');
+  if (counter) counter.textContent = String(lcConnections.size);
+  const status = document.getElementById('lc-status');
+  if (status) status.textContent = '● LIVE — ' + lcConnections.size + ' ACTIVE CONNECTIONS';
+  lcRenderTable();
+}
+
+async function lcToggle() {
+  if (lcMonitoring) { lcStop(); } else { await lcStart(); }
+}
+
+async function lcStart() {
+  lcEnsureMap();
+  lcSetupTraceListeners();
+  lcMonitoring = true;
+  const btn = document.getElementById('lc-toggle-btn');
+  if (btn) { btn.textContent = '■ STOP MONITORING'; btn.style.borderColor = '#ef4444'; btn.style.color = '#ef4444'; }
+  const status = document.getElementById('lc-status');
+  if (status) status.textContent = '● SCANNING CONNECTIONS...';
+  if (!lcUserLL) {
+    const userLoc = await lcResolveUserLocation();
+    if (userLoc) lcPlaceYouMarker(userLoc.ll, userLoc.label);
+  }
+  await lcPoll();
+  if (lcMonitoring) lcPollTimer = setInterval(lcPoll, 5000);
+}
+
+function lcStop() {
+  lcClearTrace();
+  lcMonitoring = false;
+  if (lcPollTimer) { clearInterval(lcPollTimer); lcPollTimer = null; }
+  const btn = document.getElementById('lc-toggle-btn');
+  if (btn) { btn.textContent = '▶ START MONITORING'; btn.style.borderColor = '#f59e0b'; btn.style.color = '#f59e0b'; }
+  const status = document.getElementById('lc-status');
+  if (status) status.textContent = '';
 }
 
 // ─── INIT ──────────────────────────────────────────────────────
 function initNetworkToolkit() {
   let savedTab = 'traceroute';
-  try { savedTab = localStorage.getItem('nt-active-tab') || 'traceroute'; } catch(_) {}
+  try {
+    const stored = localStorage.getItem('nt-active-tab');
+    savedTab = (stored && stored !== 'pathviz') ? stored : 'traceroute';
+  } catch(_) {}
   ntSwitchTab(savedTab);
   ntRenderWhoisHistory();
   ntRenderMACTable();

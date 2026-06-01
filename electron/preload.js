@@ -61,6 +61,9 @@ contextBridge.exposeInMainWorld('aegis', {
   // ── Local port scanner ────────────────────────────────────────
   scanLocalPorts: () => ipcRenderer.invoke('scan-local-ports'),
 
+  // ── Active connections ────────────────────────────────────────
+  getActiveConnections: () => ipcRenderer.invoke('get-active-connections'),
+
   // ── Radar readings ────────────────────────────────────────────
   addRadarReading: (reading) => ipcRenderer.invoke('db-add-radar-reading', reading),
   getRadarReadings: (limit) => ipcRenderer.invoke('db-get-radar-readings', limit),

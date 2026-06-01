@@ -596,6 +596,40 @@ ipcMain.on('stop-traceroute', () => {
   }
 });
 
+// Active connections — runs netstat and returns unique public remote IPs (ESTABLISHED only)
+ipcMain.handle('get-active-connections', () => {
+  const { exec } = require('child_process');
+  const isWin = process.platform === 'win32';
+  const cmd = isWin ? 'netstat -n' : 'netstat -n -p tcp';
+  return new Promise((resolve) => {
+    exec(cmd, { timeout: 8000 }, (err, stdout) => {
+      if (err && !stdout) { resolve([]); return; }
+      const isPrivate = (ip) =>
+        /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|0\.0\.0\.0|169\.254\.|::1$|fe80:)/i.test(ip);
+      const ips = new Set();
+      (stdout || '').split('\n').forEach((line) => {
+        if (!line.includes('ESTABLISHED')) return;
+        const parts = line.trim().split(/\s+/);
+        // Windows: TCP local:port remote:port ESTABLISHED (remote = parts[2])
+        // macOS/Linux: tcp4 0 0 local.port remote.port ESTABLISHED (remote = parts[4])
+        const remoteRaw = isWin ? parts[2] : parts[4];
+        if (!remoteRaw) return;
+        let ip;
+        if (isWin) {
+          const i = remoteRaw.lastIndexOf(':');
+          ip = i > 0 ? remoteRaw.slice(0, i) : null;
+        } else {
+          const i = remoteRaw.lastIndexOf('.');
+          ip = i > 0 ? remoteRaw.slice(0, i) : null;
+        }
+        if (!ip || isPrivate(ip) || ip.includes(':')) return;
+        ips.add(ip);
+      });
+      resolve(Array.from(ips));
+    });
+  });
+});
+
 // Local port scanner — uses Node's net module, no external API
 ipcMain.handle('scan-local-ports', () => {
   const net = require('net');
