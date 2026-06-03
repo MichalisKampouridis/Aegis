@@ -258,6 +258,7 @@ function saveSetting(key, value) {
   }
 }
 
+
 function saveNotifSetting(key, value) {
   if (!currentSettings.notifications) currentSettings.notifications = {};
   currentSettings.notifications[key] = value;
