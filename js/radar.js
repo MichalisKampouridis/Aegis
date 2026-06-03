@@ -372,14 +372,14 @@ async function radarTakeSample() {
 
 async function radarMeasureLatency() {
   const targets = [
-    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://1.1.1.1/cdn-cgi/trace',
-    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://8.8.8.8/generate_204',
-    'https://aegis-proxy.ka-mixalis99.workers.dev/?url=https://www.google.com/generate_204'
+    'https://one.one.one.one/',
+    'https://8.8.8.8/generate_204',
+    'https://www.google.com/generate_204'
   ];
   const results = await Promise.all(targets.map(async function(url) {
     const t0 = performance.now();
     try {
-      await fetch(url, { method: 'HEAD', mode: 'cors', cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      await fetch(url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(3000) });
     } catch (_) { return 9999; }
     return Math.round(performance.now() - t0);
   }));

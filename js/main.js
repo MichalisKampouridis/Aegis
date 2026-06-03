@@ -2498,18 +2498,40 @@ async function loadThreatHeatmap() {
   var dayMap = {};
   var levelRank = { 'LOW': 0, 'ELEVATED': 1, 'HIGH': 2 };
   readings.forEach(function(r) {
-    if (!r.ts) return;
-    var d = new Date(r.ts);
+    // Accept both field names; coerce to Number so new Date() always gets a numeric ms value
+    var ts = Number(r.ts || r.timestamp);
+    if (!ts) return;
+    var d   = new Date(ts);
     var key = d.getFullYear() + '-' +
-      String(d.getMonth() + 1).padStart(2, '0') + '-' +
-      String(d.getDate()).padStart(2, '0');
-    if (!dayMap[key]) dayMap[key] = { worstLevel: 'LOW', anomalyCount: 0 };
+              (d.getMonth() + 1).toString().padStart(2, '0') + '-' +
+              d.getDate().toString().padStart(2, '0');
+    // Skip readings whose timestamp produced an invalid date
+    if (key === 'NaN-NaN-NaN') return;
+    if (!dayMap[key]) dayMap[key] = {
+      worstLevel: 'LOW', anomalyCount: 0,
+      sampleCount: 0, totalLatency: 0,
+      ipChanges: 0, vpnDrops: 0, dnsChanges: 0
+    };
     var level = 'LOW';
     if (r.latency > 300 || r.ipChanged || r.vpnDropped) level = 'HIGH';
     else if (r.latency > 150) level = 'ELEVATED';
     if (levelRank[level] > levelRank[dayMap[key].worstLevel]) dayMap[key].worstLevel = level;
     if (level !== 'LOW') dayMap[key].anomalyCount++;
+    dayMap[key].sampleCount++;
+    if (r.latency) dayMap[key].totalLatency += r.latency;
+    if (r.ipChanged)  dayMap[key].ipChanges++;
+    if (r.vpnDropped) dayMap[key].vpnDrops++;
+    if (r.dnsChanged) dayMap[key].dnsChanges++;
   });
+
+  // ── DEBUG: heatmap day grouping ──────────────────────────────
+  console.log('[HEATMAP DEBUG] total readings fetched:', readings.length);
+  console.log('[HEATMAP DEBUG] unique day keys:', Object.keys(dayMap).length);
+  console.log('[HEATMAP DEBUG] raw first reading:', readings[0] ? JSON.stringify(readings[0]) : 'none');
+  Object.keys(dayMap).sort().forEach(function(k) {
+    console.log('[HEATMAP DEBUG] day', k, '→ samples:', dayMap[k].sampleCount, '| anomalies:', dayMap[k].anomalyCount);
+  });
+  // ─────────────────────────────────────────────────────────────
 
   // Last 30 days: index 0 = oldest, index 29 = today
   var today = new Date();
@@ -2524,13 +2546,19 @@ async function loadThreatHeatmap() {
     days.push({ date: d, key: key, data: dayMap[key] || null, isToday: i === 0 });
   }
 
-  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var DAYS_FULL   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
   function squareColor(day) {
     if (!day.data) return '#1e2d4a';
     if (day.data.worstLevel === 'HIGH') return '#ef4444';
     if (day.data.worstLevel === 'ELEVATED') return '#f59e0b';
     return '#10b981';
+  }
+
+  function fullDate(d) {
+    return DAYS_FULL[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS_FULL[d.getMonth()] + ' ' + d.getFullYear();
   }
 
   // 30 squares — 28px wide, 4px gap → stride 32px
@@ -2540,13 +2568,27 @@ async function loadThreatHeatmap() {
     var border = day.isToday
       ? 'outline:2px solid #f59e0b;outline-offset:1px;'
       : 'border:1px solid rgba(255,255,255,0.06);';
-    var dateText = MONTHS[day.date.getMonth()] + ' ' + day.date.getDate();
+    var dateText  = MONTHS[day.date.getMonth()] + ' ' + day.date.getDate();
     var levelText = day.data ? day.data.worstLevel : 'NO DATA';
-    var anomalies = day.data ? day.data.anomalyCount : 0;
+    var samples   = day.data ? day.data.sampleCount   : 0;
+    var anomalies = day.data ? day.data.anomalyCount   : 0;
+    var avgLat    = (day.data && day.data.sampleCount)
+      ? Math.round(day.data.totalLatency / day.data.sampleCount) : 0;
+    var ipCh  = day.data ? day.data.ipChanges  : 0;
+    var vpnDr = day.data ? day.data.vpnDrops   : 0;
+    var dnsCh = day.data ? day.data.dnsChanges : 0;
     squaresHTML +=
       '<div class="hm-sq"' +
-      ' style="width:28px;height:28px;border-radius:3px;background:' + color + ';' + border + 'cursor:default;flex-shrink:0;"' +
-      ' data-date="' + dateText + '" data-level="' + levelText + '" data-anomalies="' + anomalies + '">' +
+      ' style="width:28px;height:28px;border-radius:3px;background:' + color + ';' + border + 'cursor:pointer;flex-shrink:0;"' +
+      ' data-date="' + dateText + '"' +
+      ' data-fulldate="' + fullDate(day.date) + '"' +
+      ' data-level="' + levelText + '"' +
+      ' data-samples="' + samples + '"' +
+      ' data-anomalies="' + anomalies + '"' +
+      ' data-avglat="' + avgLat + '"' +
+      ' data-ipchanges="' + ipCh + '"' +
+      ' data-vpndrops="' + vpnDr + '"' +
+      ' data-dnschanges="' + dnsCh + '">' +
       '</div>';
   });
 
@@ -2609,8 +2651,94 @@ async function loadThreatHeatmap() {
     sq.addEventListener('mouseleave', function() {
       tip.style.display = 'none';
     });
+    sq.addEventListener('click', function(e) {
+      e.stopPropagation();
+      tip.style.display = 'none';
+      showHeatmapPopup(sq);
+    });
   });
 }
+
+function showHeatmapPopup(sq) {
+  var existing = document.getElementById('heatmap-popup');
+  if (existing) existing.remove();
+
+  var fulldate   = sq.getAttribute('data-fulldate');
+  var level      = sq.getAttribute('data-level');
+  var samples    = parseInt(sq.getAttribute('data-samples'))    || 0;
+  var anomalies  = parseInt(sq.getAttribute('data-anomalies'))  || 0;
+  var avgLat     = parseInt(sq.getAttribute('data-avglat'))     || 0;
+  var ipChanges  = parseInt(sq.getAttribute('data-ipchanges'))  || 0;
+  var vpnDrops   = parseInt(sq.getAttribute('data-vpndrops'))   || 0;
+  var dnsChanges = parseInt(sq.getAttribute('data-dnschanges')) || 0;
+  var hasData    = samples > 0;
+  var lc = level === 'HIGH' ? '#ef4444' : level === 'ELEVATED' ? '#f59e0b' : level === 'LOW' ? '#10b981' : '#64748b';
+
+  var closeBtn =
+    '<button onclick="var p=document.getElementById(\'heatmap-popup\');if(p)p.remove();" ' +
+    'style="background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 14px;flex-shrink:0;">&#10005;</button>';
+
+  var inner;
+  if (!hasData) {
+    inner =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+      '<div style="color:#f59e0b;font-size:11px;letter-spacing:1px;">' + fulldate + '</div>' + closeBtn +
+      '</div>' +
+      '<div style="color:#64748b;font-size:12px;">No data recorded for this day.</div>';
+  } else {
+    var events = [];
+    if (ipChanges  > 0) events.push('&#9670; ' + ipChanges  + ' IP change'  + (ipChanges  > 1 ? 's' : ''));
+    if (vpnDrops   > 0) events.push('&#9670; ' + vpnDrops   + ' VPN drop'   + (vpnDrops   > 1 ? 's' : ''));
+    if (dnsChanges > 0) events.push('&#9670; ' + dnsChanges + ' DNS change' + (dnsChanges > 1 ? 's' : ''));
+
+    inner =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+      '<div style="color:#f59e0b;font-size:11px;letter-spacing:1px;">' + fulldate + '</div>' + closeBtn +
+      '</div>' +
+      '<div style="border-bottom:1px solid #1e2d4a;padding-bottom:12px;margin-bottom:12px;">' +
+      '<div>THREAT LEVEL: <span style="color:' + lc + ';font-weight:bold;">' + level + '</span></div>' +
+      '<div style="color:#94a3b8;">SAMPLES TAKEN: <span style="color:#e2e8f0;">' + samples + '</span></div>' +
+      '<div style="color:#94a3b8;">ANOMALIES: <span style="color:' + (anomalies > 0 ? '#f59e0b' : '#e2e8f0') + ';">' + anomalies + '</span></div>' +
+      '<div style="color:#94a3b8;">AVG LATENCY: <span style="color:#e2e8f0;">' + (avgLat > 0 ? avgLat + ' ms' : 'N/A') + '</span></div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:#64748b;letter-spacing:1px;margin-bottom:8px;">EVENTS</div>' +
+      (events.length > 0
+        ? events.map(function(ev) {
+            return '<div style="color:#e2e8f0;font-size:11px;margin-bottom:3px;">' + ev + '</div>';
+          }).join('')
+        : '<div style="color:#64748b;font-size:11px;">No specific events recorded.</div>');
+  }
+
+  var popup = document.createElement('div');
+  popup.id = 'heatmap-popup';
+  popup.style.cssText =
+    'position:fixed;background:#0d1526;border:1px solid #f59e0b;border-radius:4px;' +
+    'padding:16px 18px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#e2e8f0;' +
+    'z-index:10000;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:250px;max-width:300px;line-height:1.8;';
+  popup.innerHTML = inner;
+  document.body.appendChild(popup);
+
+  // Position below the square, centred horizontally on it
+  var rect = sq.getBoundingClientRect();
+  var pw   = 270;
+  var left = Math.round(rect.left + rect.width / 2 - pw / 2);
+  var top  = Math.round(rect.bottom + 8);
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (top + popup.offsetHeight > window.innerHeight - 8) top = Math.round(rect.top - popup.offsetHeight - 8);
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+}
+
+// Close heatmap popup when clicking outside it (registered once at module load)
+(function() {
+  if (window._heatmapOutsideListenerAdded) return;
+  window._heatmapOutsideListenerAdded = true;
+  document.addEventListener('click', function(e) {
+    var popup = document.getElementById('heatmap-popup');
+    if (popup && !popup.contains(e.target)) popup.remove();
+  });
+}());
 
 function renderStatCard(label, value, color, icon) {
   return '<div style="background:var(--bg-card); border:1px solid var(--border); border-top:2px solid ' + color + '; border-radius:4px; padding:20px; text-align:center;">' +
