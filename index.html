@@ -403,7 +403,7 @@
         <div class="card">
           <div class="card-header">CVE THREAT FEED</div>
           <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">&#128737; LOAD CVE FEED</button>
+            <button onclick="loadCVEFeed()" class="aegis-btn" id="cve-refresh-btn">&#9654; LOAD CVE FEED</button>
             <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">Source: US National Vulnerability Database (NVD)</div>
           </div>
           <div class="result-area" id="cve-result"><p class="placeholder-text">Click LOAD CVE FEED to pull the latest vulnerabilities.</p></div>
@@ -460,8 +460,22 @@
             <button class="aegis-btn" onclick="runNetworkScan()">&#9654; RUN NETWORK SCAN</button>
           </div>
           <div id="network-result"><p class="placeholder-text">Click RUN NETWORK SCAN to analyze your connection.</p></div>
-          <div class="card" style="margin-top:24px;">
-            <div class="card-header">PING TOOL</div>
+        </div>
+
+        <!-- NETWORK DEVICES -->
+        <div class="card" style="margin-top:24px;">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            NETWORK DEVICES
+            <div style="display:flex; gap:8px;">
+              <button class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#ef4444; color:#ef4444;" onclick="unblockAllDevices()">&#9888; UNBLOCK ALL</button>
+              <button class="aegis-btn" style="font-size:11px; padding:6px 14px;" onclick="scanNetworkDevices()">&#9654; SCAN NETWORK</button>
+            </div>
+          </div>
+          <div id="network-devices-result"><p class="placeholder-text">Click SCAN NETWORK to discover devices on your local network.</p></div>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
+          <div class="card-header">PING TOOL</div>
             <div class="input-row">
               <input type="text" id="ping-input" class="aegis-input" placeholder="Enter IP, domain, or name (e.g. google, facebook, cloudflare)...">
               <button class="aegis-btn" onclick="runPing()">⚡ PING</button>
@@ -470,7 +484,6 @@
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;" id="ping-shortcuts"></div>
             <div id="ping-result"></div>
           </div>
-        </div>
 
         <!-- INCIDENT LOG -->
         <div class="card" style="margin-top:24px;">

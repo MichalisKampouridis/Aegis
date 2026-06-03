@@ -64,6 +64,12 @@ contextBridge.exposeInMainWorld('aegis', {
   // ── Active connections ────────────────────────────────────────
   getActiveConnections: () => ipcRenderer.invoke('get-active-connections'),
 
+  // ── Network device scan ───────────────────────────────────────
+  scanNetworkDevices: () => ipcRenderer.invoke('scan-network-devices'),
+  blockDevice: (ip) => ipcRenderer.invoke('block-device', ip),
+  unblockAllDevices: () => ipcRenderer.invoke('unblock-all-devices'),
+  getGatewayIP: () => ipcRenderer.invoke('get-gateway-ip'),
+
   // ── Radar readings ────────────────────────────────────────────
   addRadarReading: (reading) => ipcRenderer.invoke('db-add-radar-reading', reading),
   getRadarReadings: (limit) => ipcRenderer.invoke('db-get-radar-readings', limit),

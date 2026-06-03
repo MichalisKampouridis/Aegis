@@ -665,6 +665,136 @@ ipcMain.handle('scan-local-ports', () => {
   })));
 });
 
+// ─── NETWORK DEVICES SCAN ────────────────────────────────────
+ipcMain.handle('scan-network-devices', async () => {
+  const { exec } = require('child_process');
+  const net = require('net');
+  const dns = require('dns').promises;
+
+  // Detect own IP and gateway
+  const ipconfigOut = await new Promise(r =>
+    exec('ipconfig', { timeout: 5000 }, (_, s) => r(s || ''))
+  );
+  // Match all IPv4 addresses from ipconfig, pick first non-loopback private one
+  const ipMatches = [...ipconfigOut.matchAll(/IPv4[^:]+:\s*([\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3})/gi)];
+  const ownIP = (ipMatches.map(m => m[1]).find(ip =>
+    !ip.startsWith('127.') && (
+      ip.startsWith('10.') ||
+      ip.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+    )
+  ));
+  if (!ownIP) return { success: false, error: 'Could not detect local subnet' };
+  const subnetBase = ownIP.split('.').slice(0, 3).join('.');
+  const gwMatch = ipconfigOut.match(/Default Gateway[.\s]+:\s*(\d+\.\d+\.\d+\.\d+)/);
+  const gatewayIP = gwMatch ? gwMatch[1] : (subnetBase + '.1');
+
+  // TCP probe all 254 hosts (triggers ARP cache population, detects alive hosts)
+  const probeHost = (ip) => new Promise((resolve) => {
+    const s = net.createConnection({ host: ip, port: 80, timeout: 300 });
+    let alive = false;
+    s.on('connect', () => { alive = true; s.destroy(); });
+    s.on('error', (err) => { if (err.code === 'ECONNREFUSED') alive = true; s.destroy(); });
+    s.on('timeout', () => s.destroy());
+    s.on('close', () => resolve({ ip, alive }));
+  });
+
+  const allIPs = Array.from({ length: 254 }, (_, i) => `${subnetBase}.${i + 1}`);
+  const tcpAlive = new Set();
+
+  // Process in batches of 50 to avoid overwhelming the event loop
+  for (let i = 0; i < allIPs.length; i += 50) {
+    const batch = allIPs.slice(i, i + 50);
+    const results = await Promise.all(batch.map(probeHost));
+    results.forEach(r => { if (r.alive) tcpAlive.add(r.ip); });
+  }
+
+  // Read ARP table — ground truth for all devices seen on the LAN
+  const arpOut = await new Promise(r =>
+    exec('arp -a', { timeout: 5000 }, (_, s) => r(s || ''))
+  );
+  const arpMap = {};
+  const arpMacRegex = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+([\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2})/gi;
+  for (const m of arpOut.matchAll(arpMacRegex)) {
+    const ip = m[1];
+    const mac = m[2].toUpperCase().replace(/-/g, ':');
+    if (ip.startsWith(subnetBase + '.') && mac !== 'FF:FF:FF:FF:FF:FF') {
+      arpMap[ip] = mac;
+    }
+  }
+
+  // Only include IPs that have a confirmed MAC in the ARP table OR responded to a TCP probe
+  const found = new Set([...tcpAlive, ...Object.keys(arpMap)]);
+  found.add(ownIP);
+  if (gatewayIP.startsWith(subnetBase + '.')) found.add(gatewayIP);
+
+  // Resolve hostnames in parallel (3 s timeout each)
+  const devices = await Promise.all(
+    Array.from(found).map(async (ip) => {
+      let hostname = '';
+      try {
+        const names = await Promise.race([
+          dns.reverse(ip),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+        ]);
+        hostname = names[0] || '';
+      } catch (_) {}
+      return {
+        ip,
+        mac: arpMap[ip] || '',
+        hostname,
+        isOwnDevice: ip === ownIP,
+        isGateway: ip === gatewayIP,
+        status: 'ACTIVE'
+      };
+    })
+  );
+
+  devices.sort((a, b) => {
+    if (a.isOwnDevice) return -1;
+    if (b.isOwnDevice) return 1;
+    if (a.isGateway) return -1;
+    if (b.isGateway) return 1;
+    return parseInt(a.ip.split('.')[3]) - parseInt(b.ip.split('.')[3]);
+  });
+
+  return { success: true, devices, ownIP, gatewayIP, subnet: subnetBase + '.0/24' };
+});
+
+ipcMain.handle('block-device', (_, ip) => {
+  const { exec } = require('child_process');
+  const safe = ip.replace(/[^0-9.]/g, '');
+  const name = `Aegis Block ${safe}`;
+  const cmd = `netsh advfirewall firewall add rule name="${name}" dir=in action=block remoteip=${safe} protocol=any`;
+  return new Promise((resolve) => {
+    exec(cmd, { timeout: 10000 }, (err) => {
+      if (err) resolve({ success: false, error: err.message });
+      else resolve({ success: true });
+    });
+  });
+});
+
+ipcMain.handle('unblock-all-devices', () => {
+  const { exec } = require('child_process');
+  const cmd = `powershell -NoProfile -Command "Get-NetFirewallRule | Where-Object {$_.DisplayName -like 'Aegis Block*'} | Remove-NetFirewallRule"`;
+  return new Promise((resolve) => {
+    exec(cmd, { timeout: 20000 }, (err) => {
+      resolve({ success: !err, error: err ? err.message : null });
+    });
+  });
+});
+
+ipcMain.handle('get-gateway-ip', () => {
+  const { exec } = require('child_process');
+  return new Promise((resolve) => {
+    exec('ipconfig', { timeout: 5000 }, (err, stdout) => {
+      if (err && !stdout) { resolve(null); return; }
+      const m = (stdout || '').match(/Default Gateway[.\s]+:\s*(\d+\.\d+\.\d+\.\d+)/);
+      resolve(m ? m[1] : null);
+    });
+  });
+});
+
 // Auto-updates
 ipcMain.handle('check-for-updates', () => {
   if (!updater) return { dev: true };
