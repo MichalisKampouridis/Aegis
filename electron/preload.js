@@ -64,6 +64,9 @@ contextBridge.exposeInMainWorld('aegis', {
   // ── Active connections ────────────────────────────────────────
   getActiveConnections: () => ipcRenderer.invoke('get-active-connections'),
 
+  // ── SSL certificate checker ───────────────────────────────────
+  checkSSL: (domain) => ipcRenderer.invoke('check-ssl', domain),
+
   // ── Network device scan ───────────────────────────────────────
   scanNetworkDevices: () => ipcRenderer.invoke('scan-network-devices'),
   blockDevice: (ip) => ipcRenderer.invoke('block-device', ip),

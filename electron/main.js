@@ -795,6 +795,95 @@ ipcMain.handle('get-gateway-ip', () => {
   });
 });
 
+// ─── SSL CERTIFICATE CHECKER ──────────────────────────────────
+ipcMain.handle('check-ssl', (_, domain) => {
+  const tls  = require('tls');
+  const host = (domain || '').replace(/^https?:\/\//i, '').replace(/[/?#:].*/,'').trim();
+  if (!host) return { success: false, error: 'No domain provided' };
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (result) => { if (!done) { done = true; resolve(result); } };
+
+    const timer = setTimeout(() => {
+      socket.destroy();
+      finish({ success: false, error: 'Connection timed out (10 s)' });
+    }, 10000);
+
+    const socket = tls.connect(
+      { host, port: 443, servername: host, rejectUnauthorized: false },
+      () => {
+        clearTimeout(timer);
+        try {
+          const cert       = socket.getPeerCertificate(true);
+          const protocol   = socket.getProtocol ? socket.getProtocol() : 'Unknown';
+          const authorized = socket.authorized;
+          const authError  = socket.authorizationError || null;
+          socket.destroy();
+
+          if (!cert || !Object.keys(cert).length) {
+            return finish({ success: false, error: 'Server returned no certificate' });
+          }
+
+          const validFrom = new Date(cert.valid_from);
+          const validTo   = new Date(cert.valid_to);
+          const daysLeft  = Math.floor((validTo - Date.now()) / 86400000);
+
+          const sans = cert.subjectaltname
+            ? cert.subjectaltname.split(', ')
+                .filter(s => s.startsWith('DNS:') || s.startsWith('IP Address:'))
+                .map(s => s.replace(/^DNS:|^IP Address:/i, '').trim())
+            : [];
+
+          const subjectCN = (cert.subject && cert.subject.CN) || '';
+          const issuerCN  = (cert.issuer  && cert.issuer.CN)  || '';
+          const issuerO   = (cert.issuer  && cert.issuer.O)   || '';
+
+          const h = host.toLowerCase();
+          const domainMatches = authorized || [subjectCN, ...sans].some(name => {
+            const n = name.toLowerCase();
+            if (n === h) return true;
+            if (n.startsWith('*.')) {
+              const parts = h.split('.');
+              return parts.length >= 2 && parts.slice(1).join('.') === n.slice(2);
+            }
+            return false;
+          });
+
+          let sigAlg = 'Unknown';
+          if (cert.asn1Curve) sigAlg = 'ECDSA (' + cert.asn1Curve + ')';
+          else if (cert.bits)  sigAlg = 'RSA-' + cert.bits;
+
+          finish({
+            success: true,
+            host,
+            validFrom:    cert.valid_from,
+            validTo:      cert.valid_to,
+            daysLeft,
+            isExpired:    daysLeft < 0,
+            subject:      subjectCN || JSON.stringify(cert.subject || {}),
+            issuer:       issuerCN  || issuerO,
+            issuerOrg:    issuerO,
+            sans,
+            serial:       cert.serialNumber || '',
+            fingerprint:  cert.fingerprint256 || cert.fingerprint || '',
+            sigAlg,
+            protocol,
+            authorized,
+            authError,
+            domainMatches
+          });
+        } catch (err) {
+          socket.destroy();
+          finish({ success: false, error: err.message });
+        }
+      }
+    );
+
+    socket.on('error', (err) => { clearTimeout(timer); finish({ success: false, error: err.message }); });
+  });
+});
+
 // Auto-updates
 ipcMain.handle('check-for-updates', () => {
   if (!updater) return { dev: true };

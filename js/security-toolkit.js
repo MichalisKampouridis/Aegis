@@ -141,158 +141,148 @@ async function stSaveChatHistory() {
   } catch (_) {}
 }
 
-// ── SSL INSPECTOR (DNS Security via dns.google DoH) ───────────
-// crt.sh and arbitrary domain fetches are not in the proxy allowlist.
-// dns.google is a public HTTPS API — no proxy needed, no CORS issues.
+// ── SSL CERTIFICATE CHECKER ────────────────────────────────────
 
-async function stInspectSSL() {
+let sslCheckHistory = [];
+
+async function stCheckSSL() {
   const input     = document.getElementById('st-ssl-input');
   const resultDiv = document.getElementById('st-ssl-result');
-  const domain    = (input.value.trim()).replace(/^https?:\/\//,'').replace(/[/?#].*$/,'').trim();
+  const domain    = (input.value || '').trim().replace(/^https?:\/\//i, '').replace(/[/?#:].*/,'').trim();
 
-  if (!domain) { resultDiv.innerHTML = '<p class="placeholder-text">Please enter a domain name.</p>'; return; }
+  if (!domain) {
+    resultDiv.innerHTML = '<p class="placeholder-text">Enter a domain name (e.g. google.com).</p>';
+    return;
+  }
 
-  resultDiv.innerHTML = '<p class="loading">QUERYING DNS SECURITY RECORDS...</p>';
+  resultDiv.innerHTML =
+    '<div style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);letter-spacing:2px;margin-bottom:10px;">CONNECTING TO ' + stEscapeHtml(domain) + ':443...</div>' +
+    '<div style="width:100%;height:3px;background:var(--bg-secondary);border-radius:2px;"><div style="height:3px;background:#f59e0b;border-radius:2px;animation:loadingBar 2s ease-in-out infinite;"></div></div>';
+
+  if (!window.aegis || !window.aegis.checkSSL) {
+    resultDiv.innerHTML = '<p class="placeholder-text">SSL check requires the Electron runtime.</p>';
+    return;
+  }
 
   try {
-    // Five parallel DoH queries — dns.google needs no proxy
-    const [aRec, caaRec, tlsaRec, txtRec, dmarcRec] = await Promise.all([
-      stDNSQuery(domain,                'A'   ),
-      stDNSQuery(domain,                'CAA' ),
-      stDNSQuery('_443._tcp.' + domain, 'TLSA'),
-      stDNSQuery(domain,                'TXT' ),
-      stDNSQuery('_dmarc.' + domain,    'TXT' )
-    ]);
-    stRenderDNSSecResult(domain, { a: aRec, caa: caaRec, tlsa: tlsaRec, txt: txtRec, dmarc: dmarcRec });
+    const data = await window.aegis.checkSSL(domain);
+    sslAddHistory(domain, data);
+    stRenderSSLResult(resultDiv, domain, data);
   } catch (e) {
-    resultDiv.innerHTML = '<p class="placeholder-text">DNS query failed: ' + stEscapeHtml(e.message) + '</p>';
+    resultDiv.innerHTML = '<p class="placeholder-text">Error: ' + stEscapeHtml(e.message) + '</p>';
   }
 }
 
-async function stDNSQuery(name, type) {
-  const resp = await fetch('https://dns.google/resolve?name=' + encodeURIComponent(name) + '&type=' + type);
-  if (!resp.ok) throw new Error('dns.google returned ' + resp.status + ' for ' + name + '/' + type);
-  return resp.json();
+function sslAddHistory(domain, data) {
+  sslCheckHistory = sslCheckHistory.filter(function(h) { return h.domain !== domain; });
+  sslCheckHistory.unshift({ domain: domain, ok: data.success && !data.isExpired && data.authorized });
+  if (sslCheckHistory.length > 5) sslCheckHistory.pop();
+  sslRenderHistory();
 }
 
-function stRenderDNSSecResult(domain, d) {
-  const resultDiv = document.getElementById('st-ssl-result');
+function sslRenderHistory() {
+  const el = document.getElementById('st-ssl-history');
+  if (!el || sslCheckHistory.length === 0) return;
+  el.innerHTML =
+    '<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);letter-spacing:1px;margin-bottom:8px;">RECENT CHECKS</div>' +
+    sslCheckHistory.map(function(h) {
+      const c = h.ok ? '#10b981' : '#ef4444';
+      return '<button onclick="document.getElementById(\'st-ssl-input\').value=\'' + h.domain.replace(/'/g, '') + '\';stCheckSSL();" ' +
+        'style="background:var(--bg-secondary);border:1px solid var(--border);border-left:3px solid ' + c + ';color:var(--text-primary);' +
+        'font-family:var(--font-mono);font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer;margin-right:6px;margin-bottom:6px;">' +
+        stEscapeHtml(h.domain) + '</button>';
+    }).join('');
+}
 
-  // ── Parse each record type ────────────────────────────────────
-  const aAnswers    = (d.a.Answer    || []).filter(function(r) { return r.type === 1;   });
-  const caaAnswers  = (d.caa.Answer  || []).filter(function(r) { return r.type === 257; });
-  const tlsaAnswers = (d.tlsa.Answer || []).filter(function(r) { return r.type === 52;  });
-  const txtAnswers  = (d.txt.Answer  || []).filter(function(r) { return r.type === 16;  });
-  const dmarcAns    = (d.dmarc.Answer|| []).filter(function(r) { return r.type === 16;  });
+function stRenderSSLResult(resultDiv, domain, data) {
+  if (!data.success) {
+    resultDiv.innerHTML =
+      '<div style="background:#0d1526;border:1px solid #ef4444;border-top:3px solid #ef4444;border-radius:4px;padding:24px;">' +
+      '<div style="font-family:var(--font-title);font-size:20px;color:#ef4444;letter-spacing:3px;margin-bottom:10px;">&#9888; UNREACHABLE</div>' +
+      '<div style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary);margin-bottom:6px;">' + stEscapeHtml(domain) + '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);">' + stEscapeHtml(data.error || 'Unknown error') + '</div>' +
+      '</div>';
+    return;
+  }
 
-  const resolves = aAnswers.length > 0;
-  const ips      = aAnswers.map(function(r) { return r.data; }).join(', ') || '—';
-  const hasCAA   = caaAnswers.length > 0;
-  const hasTLSA  = tlsaAnswers.length > 0;
+  // Status classification
+  let statusLabel, statusColor, statusBg;
+  if (data.isExpired) {
+    statusLabel = 'EXPIRED';  statusColor = '#ef4444'; statusBg = 'rgba(239,68,68,0.06)';
+  } else if (!data.authorized || !data.domainMatches) {
+    statusLabel = 'INVALID';  statusColor = '#ef4444'; statusBg = 'rgba(239,68,68,0.06)';
+  } else if (data.daysLeft <= 10) {
+    statusLabel = 'WARNING';  statusColor = '#ef4444'; statusBg = 'rgba(239,68,68,0.06)';
+  } else if (data.daysLeft <= 30) {
+    statusLabel = 'WARNING';  statusColor = '#f59e0b'; statusBg = 'rgba(245,158,11,0.06)';
+  } else {
+    statusLabel = 'SECURE';   statusColor = '#10b981'; statusBg = 'rgba(16,185,129,0.06)';
+  }
 
-  const spfRec   = txtAnswers.find(function(r) { return r.data && r.data.replace(/"/g,'').startsWith('v=spf1'); });
-  const dmarcRec = dmarcAns.find(function(r)   { return r.data && r.data.replace(/"/g,'').startsWith('v=DMARC1'); });
-  const hasSPF   = !!spfRec;
-  const hasDMARC = !!dmarcRec;
+  const daysColor = data.daysLeft < 0 ? '#ef4444' : data.daysLeft <= 10 ? '#ef4444' : data.daysLeft <= 30 ? '#f59e0b' : '#10b981';
+  const daysDisplay = data.isExpired ? 'EXPIRED ' + Math.abs(data.daysLeft) + ' days ago' : data.daysLeft + ' days remaining';
 
-  // ── DNS Security Score: resolves + CAA + SPF + DMARC ─────────
-  const score       = [resolves, hasCAA, hasSPF, hasDMARC].filter(Boolean).length;
-  const scoreColors = ['#ef4444','#f97316','#f59e0b','#84cc16','#10b981'];
-  const scoreColor  = scoreColors[score];
-  const topColor    = resolves ? '#10b981' : '#ef4444';
-
-  // ── Helper: left-bordered info row ────────────────────────────
-  function secRow(present, title, body) {
-    const c = present ? '#10b981' : (present === false ? '#ef4444' : '#64748b');
-    const icon = present ? '✓' : (present === false ? '✗' : '—');
-    return '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + c + '; border-radius:3px; padding:12px 16px; margin-bottom:8px;">' +
-      '<div style="font-family:var(--font-mono); font-size:12px; color:' + c + '; margin-bottom:' + (body ? '6px' : '0') + ';">' + icon + ' ' + title + '</div>' +
-      (body || '') +
+  function row(label, value, vc) {
+    return '<div style="display:flex;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid rgba(30,45,74,0.4);">' +
+      '<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);letter-spacing:1px;min-width:170px;flex-shrink:0;">' + label + '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:12px;color:' + (vc || 'var(--text-primary)') + ';word-break:break-all;">' + stEscapeHtml(String(value || '—')) + '</div>' +
       '</div>';
   }
 
-  function sectionHead(t) {
-    return '<div style="font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:2px; margin:20px 0 10px;">' + t + '</div>';
+  function secHead(t) {
+    return '<div style="font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:2px;margin:18px 0 8px;">' + t + '</div>';
   }
 
-  function monoSmall(text) {
-    return '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); word-break:break-all;">' + stEscapeHtml(text) + '</div>';
-  }
+  const sansHtml = data.sans && data.sans.length
+    ? '<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-primary);word-break:break-all;line-height:2;">' +
+      data.sans.map(function(s) { return stEscapeHtml(s); }).join('<span style="color:var(--text-dim);"> · </span>') +
+      '</div>'
+    : '<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">None listed</div>';
 
-  // ── Compose output ────────────────────────────────────────────
-  let html =
-    '<div style="background:var(--bg-card); border:1px solid var(--border); border-top:2px solid ' + topColor + '; border-radius:4px; padding:24px;">' +
+  const fp = data.fingerprint || '';
+  const fpDisplay = fp.length > 59 ? fp.slice(0, 59) + '…' : fp;
 
-    // Header row: domain title + score badge
-    '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:16px;">' +
+  const html =
+    // ── Status banner ────────────────────────────────────────────
+    '<div style="background:' + statusBg + ';border:1px solid ' + statusColor + ';border-top:3px solid ' + statusColor + ';border-radius:4px;padding:20px 24px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">' +
     '<div>' +
-    '<div style="font-family:var(--font-title); font-size:18px; color:var(--text-primary); letter-spacing:2px; margin-bottom:4px;">' + stEscapeHtml(domain) + '</div>' +
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim);">DNS security via dns.google (DoH) · no proxy required</div>' +
+    '<div style="font-family:var(--font-title);font-size:22px;color:' + statusColor + ';letter-spacing:3px;margin-bottom:8px;">&#9679; ' + statusLabel + '</div>' +
+    '<div style="font-family:var(--font-mono);font-size:14px;color:var(--text-primary);margin-bottom:4px;">' + stEscapeHtml(domain) + '</div>' +
+    '<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">' + stEscapeHtml(data.protocol || '') + (data.issuer ? ' · ' + stEscapeHtml(data.issuer) : '') + '</div>' +
     '</div>' +
-    '<div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">' +
-    '<div style="width:72px; height:72px; border-radius:50%; border:2px solid ' + scoreColor + '; display:flex; align-items:center; justify-content:center; font-family:var(--font-title); font-size:22px; font-weight:900; color:' + scoreColor + '; box-shadow:0 0 20px ' + scoreColor + '40; margin-bottom:4px;">' + score + '/4</div>' +
-    '<div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:1px; text-align:center;">DNS SCORE</div>' +
+    '<div style="text-align:center;flex-shrink:0;">' +
+    '<div style="font-family:var(--font-title);font-size:40px;font-weight:900;color:' + daysColor + ';line-height:1;">' + (data.isExpired ? '0' : data.daysLeft) + '</div>' +
+    '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:4px;">DAYS LEFT</div>' +
     '</div>' +
-    '</div>' +
-
-    // ── Resolution ──────────────────────────────────────────────
-    sectionHead('DOMAIN RESOLUTION') +
-    secRow(resolves,
-      resolves ? 'Resolves successfully' : 'Domain does not resolve — check the name',
-      resolves ? monoSmall('IP addresses: ' + ips) : null
-    ) +
-
-    // ── Certificate note ────────────────────────────────────────
-    sectionHead('CERTIFICATE') +
-    '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid #64748b; border-radius:3px; padding:12px 16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">' +
-    '<div>' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); margin-bottom:3px;">Expiry check requires crt.sh — not in proxy allowlist</div>' +
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); opacity:0.7;">Run <code style="background:#0a0f1e; padding:1px 5px; border-radius:2px;">wrangler login</code> then redeploy to add it, or check manually</div>' +
-    '</div>' +
-    '<button onclick="(window.aegis&&window.aegis.openExternal||window.open)(\'https://crt.sh/?q=' + encodeURIComponent(domain) + '\',\'_blank\')" class="aegis-btn" style="font-size:11px; padding:6px 14px; border-color:#64748b; color:#64748b; white-space:nowrap; flex-shrink:0;">View on crt.sh ↗</button>' +
     '</div>' +
 
-    // ── CAA records ─────────────────────────────────────────────
-    sectionHead('CERTIFICATE AUTHORITY AUTHORIZATION (CAA)') +
-    (hasCAA
-      ? '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid #10b981; border-radius:3px; padding:12px 16px; margin-bottom:8px;">' +
-        '<div style="font-family:var(--font-mono); font-size:12px; color:#10b981; margin-bottom:8px;">✓ CAA records present — certificate issuance is restricted</div>' +
-        caaAnswers.map(function(r) { return monoSmall('▶ ' + r.data); }).join('') +
-        '</div>'
-      : secRow(false,
-          'No CAA records — any Certificate Authority can issue certs for this domain',
-          null
-        )
-    ) +
+    // ── Details card ─────────────────────────────────────────────
+    '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:20px 24px;">' +
 
-    // ── TLSA / DANE ─────────────────────────────────────────────
-    sectionHead('DANE / TLSA CERTIFICATE PINNING') +
-    (hasTLSA
-      ? '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid #10b981; border-radius:3px; padding:12px 16px; margin-bottom:8px;">' +
-        '<div style="font-family:var(--font-mono); font-size:12px; color:#10b981; margin-bottom:8px;">✓ TLSA records present — DANE certificate pinning active</div>' +
-        tlsaAnswers.map(function(r) { return monoSmall('▶ ' + r.data.slice(0, 80) + (r.data.length > 80 ? '…' : '')); }).join('') +
-        '</div>'
-      : '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid #64748b; border-radius:3px; padding:12px 16px; margin-bottom:8px;">' +
-        '<div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim);">— No TLSA records (DANE not configured — normal for most public sites)</div>' +
-        '</div>'
-    ) +
+    secHead('VALIDITY') +
+    row('Valid From',       new Date(data.validFrom).toUTCString()) +
+    row('Valid To',         new Date(data.validTo).toUTCString()) +
+    row('Status',          daysDisplay, daysColor) +
 
-    // ── Email security: SPF + DMARC side by side ─────────────────
-    sectionHead('EMAIL SECURITY') +
-    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+    secHead('CERTIFICATE SUBJECT') +
+    row('Common Name',     data.subject) +
+    row('Issuer',          data.issuer) +
+    (data.issuerOrg && data.issuerOrg !== data.issuer ? row('Issuer Org', data.issuerOrg) : '') +
 
-    '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + (hasSPF ? '#10b981' : '#ef4444') + '; border-radius:3px; padding:12px 16px;">' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:' + (hasSPF ? '#10b981' : '#ef4444') + '; margin-bottom:' + (hasSPF ? '6px' : '0') + ';">' + (hasSPF ? '✓ SPF' : '✗ SPF — no record found') + '</div>' +
-    (hasSPF ? monoSmall((spfRec.data || '').replace(/"/g,'').slice(0, 100) + (((spfRec.data||'').length > 100) ? '…' : '')) : '') +
-    '</div>' +
+    secHead('SUBJECT ALTERNATIVE NAMES') +
+    '<div style="padding:8px 0;">' + sansHtml + '</div>' +
 
-    '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + (hasDMARC ? '#10b981' : '#ef4444') + '; border-radius:3px; padding:12px 16px;">' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:' + (hasDMARC ? '#10b981' : '#ef4444') + '; margin-bottom:' + (hasDMARC ? '6px' : '0') + ';">' + (hasDMARC ? '✓ DMARC' : '✗ DMARC — no record at _dmarc.' + stEscapeHtml(domain)) + '</div>' +
-    (hasDMARC ? monoSmall((dmarcRec.data || '').replace(/"/g,'').slice(0, 100) + (((dmarcRec.data||'').length > 100) ? '…' : '')) : '') +
-    '</div>' +
+    secHead('TECHNICAL DETAILS') +
+    row('Serial Number',         data.serial    || '—') +
+    row('Fingerprint (SHA-256)', fpDisplay      || '—') +
+    row('Signature Algorithm',   data.sigAlg    || '—') +
+    row('TLS Version',           data.protocol  || '—') +
 
-    '</div>' + // email grid
-    '</div>';  // main card
+    secHead('TRUST') +
+    row('Chain Trusted',    data.authorized    ? 'Yes' : 'No — ' + (data.authError  || 'untrusted chain'), data.authorized    ? '#10b981' : '#ef4444') +
+    row('Domain Matches',   data.domainMatches ? 'Yes' : 'No — certificate does not cover this domain',    data.domainMatches ? '#10b981' : '#ef4444') +
+
+    '</div>';
 
   resultDiv.innerHTML = html;
 }

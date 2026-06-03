@@ -508,7 +508,7 @@
           <div style="display:flex; align-items:center; gap:8px; padding:14px 20px; border-bottom:1px solid var(--border); background:var(--bg-secondary); flex-wrap:wrap;">
             <div style="font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:2px; margin-right:8px; flex-shrink:0;">&#9881; SECURITY TOOLKIT</div>
             <button data-st-tab="ask-aegis"     onclick="stSwitchTab('ask-aegis')"     style="background:rgba(245,158,11,0.1); border:1px solid #f59e0b; color:#f59e0b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">ASK AEGIS</button>
-            <button data-st-tab="ssl-inspector" onclick="stSwitchTab('ssl-inspector')" style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">SSL INSPECTOR</button>
+            <button data-st-tab="ssl-checker" onclick="stSwitchTab('ssl-checker')" style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">SSL CHECKER</button>
             <button data-st-tab="hash-tools"    onclick="stSwitchTab('hash-tools')"    style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">HASH TOOLS</button>
             <button data-st-tab="cve-explainer" onclick="stSwitchTab('cve-explainer')" style="background:transparent; border:1px solid #1e2d4a; color:#64748b; font-family:var(--font-mono); font-size:11px; padding:6px 16px; border-radius:2px; cursor:pointer; letter-spacing:1px; transition:all 0.2s;">CVE EXPLAINER</button>
           </div>
@@ -543,13 +543,14 @@
             </div>
           </div>
 
-          <!-- ─ SSL INSPECTOR ──────────────────────────────────── -->
-          <div id="st-panel-ssl-inspector" class="st-panel" style="display:none; padding:24px;">
-            <div class="input-row" style="margin-bottom:24px;">
-              <input type="text" id="st-ssl-input" class="aegis-input" placeholder="Enter domain (e.g. google.com)..." onkeydown="if(event.key==='Enter') stInspectSSL()">
-              <button onclick="stInspectSSL()" class="aegis-btn" style="border-color:#f59e0b; color:#f59e0b;">&#128270; INSPECT</button>
+          <!-- ─ SSL CHECKER ────────────────────────────────────── -->
+          <div id="st-panel-ssl-checker" class="st-panel" style="display:none; padding:24px;">
+            <div class="input-row" style="margin-bottom:14px;">
+              <input type="text" id="st-ssl-input" class="aegis-input" placeholder="Enter domain (e.g. google.com)..." onkeydown="if(event.key==='Enter') stCheckSSL()">
+              <button onclick="stCheckSSL()" class="aegis-btn" style="border-color:#f59e0b; color:#f59e0b;">&#128270; CHECK</button>
             </div>
-            <div id="st-ssl-result"><p class="placeholder-text">Enter a domain name and click INSPECT to analyze its SSL/TLS configuration.</p></div>
+            <div id="st-ssl-history" style="margin-bottom:16px;"></div>
+            <div id="st-ssl-result"><p class="placeholder-text">Enter a domain name to check its SSL/TLS certificate — valid dates, issuer, SANs, expiry and trust chain.</p></div>
           </div>
 
           <!-- ─ HASH TOOLS ─────────────────────────────────────── -->
