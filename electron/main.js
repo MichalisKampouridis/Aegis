@@ -25,7 +25,8 @@ const store = new Store({
     windowBounds: { width: 1400, height: 900 },
     theme: 'dark',
     socPreset: 'single',
-    startupPreset: false
+    startupPreset: false,
+    justUpdated: false
   }
 });
 
@@ -701,23 +702,51 @@ ipcMain.handle('scan-network-devices', async () => {
   const net = require('net');
   const dns = require('dns').promises;
 
-  // Detect own IP and gateway
-  const ipconfigOut = await new Promise(r =>
-    exec('ipconfig', { timeout: 5000 }, (_, s) => r(s || ''))
-  );
-  // Match all IPv4 addresses from ipconfig, pick first non-loopback private one
-  const ipMatches = [...ipconfigOut.matchAll(/IPv4[^:]+:\s*([\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3})/gi)];
-  const ownIP = (ipMatches.map(m => m[1]).find(ip =>
+  // Detect own IP and gateway — platform-aware
+  const isWin = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
+  let ownIP = null;
+  let gatewayIP = null;
+
+  const isPrivateIP = (ip) =>
     !ip.startsWith('127.') && (
       ip.startsWith('10.') ||
       ip.startsWith('192.168.') ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
-    )
-  ));
+    );
+
+  if (isWin) {
+    const ipconfigOut = await new Promise(r =>
+      exec('ipconfig', { timeout: 5000 }, (_, s) => r(s || ''))
+    );
+    const ipMatches = [...ipconfigOut.matchAll(/IPv4[^:]+:\s*([\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3})/gi)];
+    ownIP = (ipMatches.map(m => m[1]).find(isPrivateIP)) || null;
+    const gwMatch = ipconfigOut.match(/Default Gateway[.\s]+:\s*(\d+\.\d+\.\d+\.\d+)/);
+    gatewayIP = gwMatch ? gwMatch[1] : null;
+  } else if (isMac) {
+    const ifOut = await new Promise(r => exec('ifconfig', { timeout: 5000 }, (_, s) => r(s || '')));
+    const inetMatches = [...ifOut.matchAll(/inet\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g)];
+    ownIP = (inetMatches.map(m => m[1]).find(isPrivateIP)) || null;
+    const gwOut = await new Promise(r => exec('netstat -rn', { timeout: 5000 }, (_, s) => r(s || '')));
+    const gwMatch = gwOut.match(/(?:via\s+|default\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    gatewayIP = gwMatch ? gwMatch[1] : null;
+  } else {
+    // Linux — try ip addr first, fall back to ifconfig
+    const ifOut = await new Promise(r =>
+      exec('ip addr show 2>/dev/null || ifconfig -a 2>/dev/null', { timeout: 5000 }, (_, s) => r(s || ''))
+    );
+    const inetMatches = [...ifOut.matchAll(/inet\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g)];
+    ownIP = (inetMatches.map(m => m[1]).find(isPrivateIP)) || null;
+    const gwOut = await new Promise(r =>
+      exec('ip route 2>/dev/null || netstat -rn 2>/dev/null', { timeout: 5000 }, (_, s) => r(s || ''))
+    );
+    const gwMatch = gwOut.match(/(?:via\s+|default\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    gatewayIP = gwMatch ? gwMatch[1] : null;
+  }
+
   if (!ownIP) return { success: false, error: 'Could not detect local subnet' };
   const subnetBase = ownIP.split('.').slice(0, 3).join('.');
-  const gwMatch = ipconfigOut.match(/Default Gateway[.\s]+:\s*(\d+\.\d+\.\d+\.\d+)/);
-  const gatewayIP = gwMatch ? gwMatch[1] : (subnetBase + '.1');
+  if (!gatewayIP) gatewayIP = subnetBase + '.1';
 
   // TCP probe all 254 hosts (triggers ARP cache population, detects alive hosts)
   const probeHost = (ip) => new Promise((resolve) => {
@@ -744,12 +773,26 @@ ipcMain.handle('scan-network-devices', async () => {
     exec('arp -a', { timeout: 5000 }, (_, s) => r(s || ''))
   );
   const arpMap = {};
-  const arpMacRegex = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+([\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2})/gi;
-  for (const m of arpOut.matchAll(arpMacRegex)) {
-    const ip = m[1];
-    const mac = m[2].toUpperCase().replace(/-/g, ':');
-    if (ip.startsWith(subnetBase + '.') && mac !== 'FF:FF:FF:FF:FF:FF') {
-      arpMap[ip] = mac;
+
+  if (isWin) {
+    // Windows: "192.168.x.x    xx-xx-xx-xx-xx-xx    dynamic"
+    const winRe = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+([\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2}-[\da-f]{2})/gi;
+    for (const m of arpOut.matchAll(winRe)) {
+      const ip = m[1];
+      const mac = m[2].toUpperCase().replace(/-/g, ':');
+      if (ip.startsWith(subnetBase + '.') && mac !== 'FF:FF:FF:FF:FF:FF') arpMap[ip] = mac;
+    }
+  } else {
+    // macOS BSD: "? (192.168.x.x) at aa:bb:cc:dd:ee:ff on en0 ..."
+    const bsdRe = /\((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\)\s+at\s+([\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2})/gi;
+    // Linux: "192.168.x.x    ether    aa:bb:cc:dd:ee:ff    C    eth0"
+    const linuxRe = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\w+\s+([\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2})/gim;
+    for (const re of [bsdRe, linuxRe]) {
+      for (const m of arpOut.matchAll(re)) {
+        const ip = m[1];
+        const mac = m[2].toUpperCase();
+        if (ip.startsWith(subnetBase + '.') && mac !== 'FF:FF:FF:FF:FF:FF' && !arpMap[ip]) arpMap[ip] = mac;
+      }
     }
   }
 
@@ -922,7 +965,7 @@ ipcMain.handle('check-for-updates', () => {
 ipcMain.handle('install-update', () => {
   if (!updater) return false;
   try {
-    updater.downloadUpdate().then(() => updater.quitAndInstall(false, true)).catch(() => {});
+    updater.downloadUpdate().then(() => { store.set('justUpdated', true); updater.quitAndInstall(false, true); }).catch(() => {});
     return true;
   } catch (e) { return false; }
 });

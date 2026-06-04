@@ -444,6 +444,16 @@ window.loadDashboard = async function() {
   // On first dashboard load, restore persisted data
   await loadPersistedIPHistory();
   await loadPersistedBriefings();
+  // Show post-update banner exactly once after a successful update
+  if (IS_ELECTRON) {
+    try {
+      const justUpdated = await window.aegis.getSetting('justUpdated');
+      if (justUpdated) {
+        await window.aegis.setSetting('justUpdated', false);
+        showUpdateSuccessBanner();
+      }
+    } catch (_) {}
+  }
 };
 
 // Patch nav item clicks to sync title bar
@@ -469,6 +479,23 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 });
 
 // ─── AUTO-UPDATER UI ──────────────────────────────────────────
+function showUpdateSuccessBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'update-success-banner';
+  banner.style.cssText =
+    'position:fixed;top:0;left:0;right:0;z-index:8999;' +
+    'background:#065f46;border-bottom:1px solid #10b981;' +
+    "color:#d1fae5;font-family:'IBM Plex Mono',monospace;" +
+    'font-size:12px;letter-spacing:2px;text-align:center;' +
+    'padding:8px;font-weight:bold;transition:opacity 0.6s ease;';
+  banner.innerHTML = '&#10003; AEGIS UPDATED SUCCESSFULLY';
+  document.body.appendChild(banner);
+  setTimeout(function() {
+    banner.style.opacity = '0';
+    setTimeout(function() { if (banner.parentNode) banner.remove(); }, 600);
+  }, 5000);
+}
+
 function showUpdateBanner(version) {
   const banner = document.getElementById('update-banner');
   const versionEl = document.getElementById('update-version');
@@ -482,10 +509,12 @@ function dismissUpdateBanner() {
   if (banner) banner.style.display = 'none';
 }
 
-function updateNow() {
+async function updateNow() {
   if (!IS_ELECTRON || !window.aegis.installUpdate) return;
   const btn = document.querySelector('#update-banner button');
   if (btn) btn.textContent = 'DOWNLOADING...';
+  // Set flag before install so it survives the restart
+  await window.aegis.setSetting('justUpdated', true);
   window.aegis.installUpdate();
 }
 

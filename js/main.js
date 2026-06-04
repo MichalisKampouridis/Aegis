@@ -479,9 +479,9 @@ async function runBreachCheck(password) {
     const breachDiv2 = document.getElementById('breach-check-result');
     if (!breachDiv2) return;
     if (count === 0) {
-      breachDiv2.innerHTML = '<div class="safe-banner">? NOT FOUND IN ANY KNOWN DATA BREACH<br><span style="font-size:12px; opacity:0.7;">Checked via HaveIBeenPwned k-anonymity API. Your password was never transmitted.</span></div>';
+      breachDiv2.innerHTML = '<div class="safe-banner">&#10003; NOT FOUND IN ANY KNOWN DATA BREACH<br><span style="font-size:12px; opacity:0.7;">Checked via HaveIBeenPwned k-anonymity API. Your password was never transmitted.</span></div>';
     } else {
-      breachDiv2.innerHTML = '<div class="danger-banner">? FOUND IN ' + count.toLocaleString() + ' KNOWN DATA BREACHES<br><span style="font-size:12px; opacity:0.7;">Change this password immediately on any account using it.</span></div>';
+      breachDiv2.innerHTML = '<div class="danger-banner">&#10005; FOUND IN ' + count.toLocaleString() + ' KNOWN DATA BREACHES<br><span style="font-size:12px; opacity:0.7;">Change this password immediately on any account using it.</span></div>';
     }
   } catch (e) {
     const breachDiv3 = document.getElementById('breach-check-result');
@@ -813,7 +813,7 @@ async function investigateIP() {
   if (privateRange) {
     resultDiv.innerHTML =
       '<div class="breach-card" style="border-left-color:#a78bfa; background:rgba(167,139,250,0.08)">' +
-      '<div class="breach-name" style="color:#a78bfa; font-size:16px;">?? PRIVATE / INTERNAL IP</div>' +
+      '<div class="breach-name" style="color:#a78bfa; font-size:16px;">&#9670; PRIVATE / INTERNAL IP</div>' +
       '<div class="breach-detail" style="margin-top:14px;">' +
       '<p style="color:var(--text-primary); margin-bottom:14px; font-size:14px;">This is a private network address. It exists only within a local network and cannot be traced on the public internet.</p>' +
       '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +

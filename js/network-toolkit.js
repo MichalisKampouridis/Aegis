@@ -193,10 +193,16 @@ async function ntDNSQuery(domain, type) {
 
 async function ntRunWhois() {
   const input = document.getElementById('nt-whois-input').value.trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/.*/,'');
-  if (!input) { document.getElementById('nt-whois-result').innerHTML = '<p class="placeholder-text">Enter a domain name.</p>'; return; }
+  if (!input) { document.getElementById('nt-whois-result').innerHTML = '<p class="placeholder-text">Enter a domain name or IP address.</p>'; return; }
 
   const result = document.getElementById('nt-whois-result');
   result.innerHTML = '<p class="loading">QUERYING DNS RECORDS...</p>';
+
+  // Route to reverse DNS when the input is an IPv4 address
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(input)) {
+    await ntRunReverseDNS(input, result);
+    return;
+  }
 
   try {
     const records = await Promise.all(NT_DNS_TYPES.map(function(t) {
@@ -238,6 +244,50 @@ async function ntRunWhois() {
     ntWhoisHistory.unshift({ domain: input, count: records.reduce(function(a, r) { return a + r.answers.length; }, 0) });
     if (ntWhoisHistory.length > 5) ntWhoisHistory.pop();
     ntRenderWhoisHistory();
+
+  } catch (e) {
+    result.innerHTML = '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; padding:16px; border:1px solid #ef4444; border-radius:3px;">Error: ' + e.message + '</div>';
+  }
+}
+
+async function ntRunReverseDNS(ip, result) {
+  try {
+    // Build PTR query: D.C.B.A.in-addr.arpa
+    const ptrName = ip.split('.').slice().reverse().join('.') + '.in-addr.arpa';
+    const answers = await ntDNSQuery(ptrName, 'PTR');
+
+    ntWhoisHistory = ntWhoisHistory.filter(function(h) { return h.domain !== ip; });
+    ntWhoisHistory.unshift({ domain: ip, count: answers.length });
+    if (ntWhoisHistory.length > 5) ntWhoisHistory.pop();
+    ntRenderWhoisHistory();
+
+    const header =
+      '<div style="background:var(--bg-card); border:1px solid var(--border); border-top:2px solid var(--amber); border-radius:4px; padding:20px;">' +
+      '<div style="font-family:var(--font-title); font-size:16px; color:var(--amber); letter-spacing:2px; margin-bottom:4px;">&#9673; REVERSE DNS — ' + ntEscDns(ip) + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:16px;">Source: Google Public DNS · ' + new Date().toUTCString() + '</div>';
+
+    if (!answers.length) {
+      result.innerHTML = header +
+        '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-dim);">No PTR record found — this IP has no reverse DNS entry.</div>' +
+        '</div>';
+      return;
+    }
+
+    result.innerHTML = header +
+      '<div style="background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid #10b981; border-radius:3px; overflow:hidden;">' +
+      '<div style="padding:8px 12px; background:rgba(0,0,0,0.2); display:flex; justify-content:space-between; align-items:center;">' +
+      '<span style="font-family:var(--font-mono); font-size:11px; color:#10b981; letter-spacing:1px;">PTR RECORDS</span>' +
+      '<span style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim);">Reverse hostnames · ' + answers.length + ' record' + (answers.length !== 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      answers.map(function(ans) {
+        const hostname = String(ans.data || '').replace(/\.$/, '');
+        const ttl = ans.TTL != null ? ans.TTL + 's TTL' : '';
+        return '<div style="display:flex; justify-content:space-between; align-items:flex-start; padding:7px 10px; border-bottom:1px solid rgba(30,45,74,0.5); font-family:var(--font-mono); font-size:12px;">' +
+          '<span style="color:var(--text-primary); flex:1; word-break:break-all;">' + ntEscDns(hostname) + '</span>' +
+          '<span style="color:var(--text-dim); font-size:11px; margin-left:12px; flex-shrink:0;">' + ttl + '</span>' +
+          '</div>';
+      }).join('') +
+      '</div></div>';
 
   } catch (e) {
     result.innerHTML = '<div style="font-family:var(--font-mono); font-size:13px; color:#ef4444; padding:16px; border:1px solid #ef4444; border-radius:3px;">Error: ' + e.message + '</div>';
