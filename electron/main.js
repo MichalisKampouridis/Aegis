@@ -189,7 +189,7 @@ function createTray() {
 }
 
 function updateTrayMenu(status = 'secure') {
-  const statusLabels = { secure: '● SECURE', monitor: '● MONITORING', alert: '⚠ ALERT' };
+  const statusLabels = { secure: '● SECURE', monitor: '● MONITORING', alert: '! ALERT' };
   const menu = Menu.buildFromTemplate([
     { label: 'AEGIS SECURITY', enabled: false },
     { label: statusLabels[status] || statusLabels.secure, enabled: false },
@@ -251,7 +251,7 @@ async function runBackgroundMonitor() {
     if (ip && lastKnownIP && ip !== lastKnownIP) {
       const incident = logIncident('IP_CHANGE', `Public IP changed: ${lastKnownIP} → ${ip}`, 'WARNING');
       if (store.get('notifications.ipChange')) {
-        showTrayNotification('⚠ IP Address Changed', `Your public IP changed to ${ip}`);
+        showTrayNotification('IP Address Changed', `Your public IP changed to ${ip}`);
         setTrayIcon('alert');
       }
       if (mainWindow) mainWindow.webContents.send('incident', incident);
@@ -597,37 +597,67 @@ ipcMain.on('stop-traceroute', () => {
   }
 });
 
-// Active connections — runs netstat and returns unique public remote IPs (ESTABLISHED only)
+// Active connections — returns [{ip, process, pid}] for public ESTABLISHED connections.
+// Windows: netstat -n -o (PIDs, no admin) + tasklist /FO CSV /NH (names, no admin).
+// macOS/Linux: netstat -n -p tcp (no process names available without root).
 ipcMain.handle('get-active-connections', () => {
   const { exec } = require('child_process');
   const isWin = process.platform === 'win32';
-  const cmd = isWin ? 'netstat -n' : 'netstat -n -p tcp';
-  return new Promise((resolve) => {
-    exec(cmd, { timeout: 8000 }, (err, stdout) => {
-      if (err && !stdout) { resolve([]); return; }
-      const isPrivate = (ip) =>
-        /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|0\.0\.0\.0|169\.254\.|::1$|fe80:)/i.test(ip);
-      const ips = new Set();
-      (stdout || '').split('\n').forEach((line) => {
-        if (!line.includes('ESTABLISHED')) return;
-        const parts = line.trim().split(/\s+/);
-        // Windows: TCP local:port remote:port ESTABLISHED (remote = parts[2])
-        // macOS/Linux: tcp4 0 0 local.port remote.port ESTABLISHED (remote = parts[4])
-        const remoteRaw = isWin ? parts[2] : parts[4];
-        if (!remoteRaw) return;
-        let ip;
-        if (isWin) {
-          const i = remoteRaw.lastIndexOf(':');
-          ip = i > 0 ? remoteRaw.slice(0, i) : null;
-        } else {
+
+  const isPrivate = (ip) =>
+    /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|0\.0\.0\.0|169\.254\.|::1$|fe80:)/i.test(ip);
+
+  if (!isWin) {
+    return new Promise((resolve) => {
+      exec('netstat -n -p tcp', { timeout: 8000 }, (err, stdout) => {
+        if (err && !stdout) { resolve([]); return; }
+        const results = [];
+        const seen = new Set();
+        (stdout || '').split('\n').forEach((line) => {
+          if (!line.includes('ESTABLISHED')) return;
+          const parts = line.trim().split(/\s+/);
+          const remoteRaw = parts[4];
+          if (!remoteRaw) return;
           const i = remoteRaw.lastIndexOf('.');
-          ip = i > 0 ? remoteRaw.slice(0, i) : null;
-        }
-        if (!ip || isPrivate(ip) || ip.includes(':')) return;
-        ips.add(ip);
+          const ip = i > 0 ? remoteRaw.slice(0, i) : null;
+          if (!ip || isPrivate(ip) || ip.includes(':') || seen.has(ip)) return;
+          seen.add(ip);
+          results.push({ ip, process: '', pid: '' });
+        });
+        resolve(results);
       });
-      resolve(Array.from(ips));
     });
+  }
+
+  // Run netstat and tasklist in parallel — neither requires admin
+  const runNetstat  = () => new Promise(r => exec('netstat -n -o',       { timeout: 8000 },  (_, s) => r(s || '')));
+  const runTasklist = () => new Promise(r => exec('tasklist /FO CSV /NH', { timeout: 8000 },  (_, s) => r(s || '')));
+
+  return Promise.all([runNetstat(), runTasklist()]).then(([netstatOut, tasklistOut]) => {
+    // Build PID → process name from tasklist CSV: "chrome.exe","5432","Console","1","150,000 K"
+    const pidMap = {};
+    (tasklistOut || '').split('\n').forEach((line) => {
+      const m = line.match(/^"([^"]+)","(\d+)"/);
+      if (m) pidMap[m[2]] = m[1];
+    });
+
+    // Parse netstat -n -o: TCP  local:port  remote:port  ESTABLISHED  PID
+    const results = [];
+    const seen = new Set();
+    (netstatOut || '').split('\n').forEach((line) => {
+      if (!line.includes('ESTABLISHED')) return;
+      const parts = line.trim().split(/\s+/);
+      const remoteRaw = parts[2];
+      const pid = parts[4] || '';
+      if (!remoteRaw) return;
+      const col = remoteRaw.lastIndexOf(':');
+      const ip  = col > 0 ? remoteRaw.slice(0, col) : null;
+      if (!ip || isPrivate(ip) || ip.includes(':') || seen.has(ip)) return;
+      seen.add(ip);
+      results.push({ ip, process: pidMap[pid] || '', pid: String(pid) });
+    });
+
+    return results;
   });
 });
 

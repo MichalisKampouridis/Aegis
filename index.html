@@ -53,14 +53,14 @@
      OFFLINE BANNER
 ════════════════════════════════════════════════════════════ -->
 <div id="offline-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:8888; background:#b45309; color:#020818; font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:3px; text-align:center; padding:8px; font-weight:bold;">
-  ⚠ OFFLINE — SHOWING CACHED DATA — RECONNECTING...
+  &#9888; OFFLINE — SHOWING CACHED DATA — RECONNECTING...
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
      UPDATE BANNER
 ════════════════════════════════════════════════════════════ -->
 <div id="update-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:8887; background:#0d1526; border-bottom:1px solid #f59e0b; padding:8px 16px; align-items:center; gap:12px;">
-  <span style="font-size:15px; flex-shrink:0;">🔄</span>
+  <span style="font-size:15px; flex-shrink:0;">&#8635;</span>
   <div style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#e2e8f0; letter-spacing:1px;">
     UPDATE AVAILABLE — <span id="update-version" style="color:#f59e0b; font-weight:bold;">Aegis</span> is ready to download
   </div>
@@ -372,7 +372,7 @@
           <div class="input-row">
             <input type="password" id="password-input" class="aegis-input" placeholder="Enter password to check...">
             <button onclick="togglePassword()" class="aegis-btn" id="toggle-pw" style="padding:12px 14px; border-color:#1e2d4a; color:#64748b;">&#128065;</button>
-            <button class="aegis-btn" id="generate-pw-btn" style="padding:12px 16px; border-color:#1e2d4a; color:#64748b; font-size:10px;">⚡ GENERATE</button>
+            <button class="aegis-btn" id="generate-pw-btn" style="padding:12px 16px; border-color:#1e2d4a; color:#64748b; font-size:10px;">&#9889; GENERATE</button>
           </div>
           <div class="result-area" id="password-result"></div>
         </div>
@@ -416,7 +416,7 @@
           <div class="card-header">AI BRIEFING</div>
           <div style="margin-bottom:20px;">
             <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-              <button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">⚡ GENERATE BRIEFING</button>
+              <button class="aegis-btn" id="briefing-btn" onclick="generateBriefing()">&#9889; GENERATE BRIEFING</button>
               <button class="aegis-btn" id="briefing-stop-btn" onclick="stopBriefing()" style="display:none; border-color:#ef4444; color:#ef4444;">&#9632; STOP</button>
               <select id="briefing-style" class="aegis-input" style="max-width:220px;">
                 <option value="analyst">Analyst Summary</option>
@@ -478,7 +478,7 @@
           <div class="card-header">PING TOOL</div>
             <div class="input-row">
               <input type="text" id="ping-input" class="aegis-input" placeholder="Enter IP, domain, or name (e.g. google, facebook, cloudflare)...">
-              <button class="aegis-btn" onclick="runPing()">⚡ PING</button>
+              <button class="aegis-btn" onclick="runPing()">&#9889; PING</button>
               <button class="aegis-btn" id="ping-stop-btn" style="border-color:#ef4444; color:#ef4444; display:none;" onclick="stopPing()">&#9632; STOP</button>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;" id="ping-shortcuts"></div>

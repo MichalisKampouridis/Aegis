@@ -275,7 +275,7 @@ function saveStartupPresetSetting(enabled) {
   if (enabled) {
     const names = { single: 'SINGLE MONITOR', dual: 'DUAL MONITOR', triple: 'TRIPLE MONITOR' };
     const preset = currentSettings.socPreset || 'single';
-    confirm.textContent = '✓ Aegis will launch in ' + (names[preset] || preset.toUpperCase()) + ' mode on next start';
+    confirm.innerHTML = '&#10003; Aegis will launch in ' + (names[preset] || preset.toUpperCase()) + ' mode on next start';
     confirm.style.display = 'block';
   } else {
     confirm.style.display = 'none';
@@ -493,10 +493,10 @@ async function checkForUpdatesManual() {
   if (!IS_ELECTRON) return;
   const btn = document.getElementById('check-updates-btn');
   const statusEl = document.getElementById('about-update-status');
-  if (btn) { btn.textContent = '🔄 CHECKING...'; btn.disabled = true; }
+  if (btn) { btn.textContent = 'CHECKING...'; btn.disabled = true; }
   if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-dim);">Checking for updates...</span>';
   const result = await window.aegis.checkForUpdates();
-  if (btn) { btn.textContent = '🔄 CHECK FOR UPDATES'; btn.disabled = false; }
+  if (btn) { btn.textContent = 'CHECK FOR UPDATES'; btn.disabled = false; }
   if (result && result.dev) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#64748b;">Development build — update checking disabled</span>';
   }
@@ -506,16 +506,16 @@ if (IS_ELECTRON && window.aegis.onUpdateAvailable) {
   window.aegis.onUpdateAvailable(function(version) {
     showUpdateBanner(version);
     const statusEl = document.getElementById('about-update-status');
-    if (statusEl) statusEl.innerHTML = '<span style="color:#f59e0b;">🔄 Update available: v' + version + ' — <a onclick="showUpdateBanner(\'' + version + '\')" style="color:#f59e0b;cursor:pointer;text-decoration:underline;">Show banner</a></span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#f59e0b;">&#8635; Update available: v' + version + ' — <a onclick="showUpdateBanner(\'' + version + '\')" style="color:#f59e0b;cursor:pointer;text-decoration:underline;">Show banner</a></span>';
   });
 }
 
 if (IS_ELECTRON && window.aegis.onUpdateNotAvailable) {
   window.aegis.onUpdateNotAvailable(function() {
     const statusEl = document.getElementById('about-update-status');
-    if (statusEl) statusEl.innerHTML = '<span style="color:#10b981;">✓ Up to date</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#10b981;">&#10003; Up to date</span>';
     const btn = document.getElementById('check-updates-btn');
-    if (btn) { btn.textContent = '✓ UP TO DATE'; setTimeout(function() { btn.textContent = '🔄 CHECK FOR UPDATES'; }, 3000); }
+    if (btn) { btn.innerHTML = '&#10003; UP TO DATE'; setTimeout(function() { btn.textContent = 'CHECK FOR UPDATES'; }, 3000); }
   });
 }
 

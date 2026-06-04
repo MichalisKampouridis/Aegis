@@ -552,7 +552,7 @@ function radarUpdateDashboardThreat() {
       : true;
     if (notifOk && window.aegis && window.aegis.notify) {
       window.aegis.notify(
-        '⚠ Aegis Threat Level Changed',
+        'Aegis Threat Level Changed',
         'Threat level changed from ' + old + ' to ' + level
       ).catch(function() {});
     }

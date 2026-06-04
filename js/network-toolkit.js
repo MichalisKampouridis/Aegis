@@ -515,7 +515,7 @@ let lcBannerQueue   = [];              // queued { ip, hostname, geo } items
 let lcBannerShowing = false;           // true while a banner is on screen
 
 // ─── SERVICE COLOR DETECTION ──────────────────────────────────
-function lcGetServiceColor(hostname, isp) {
+function lcGetServiceColor(hostname, isp, process) {
   const c = ((hostname || '') + ' ' + (isp || '')).toLowerCase();
   if (/google|youtube|googleapis|gstatic|ggpht|googlevideo/.test(c)) return '#ef4444';
   if (/microsoft|windows\.net|azure|msft|live\.com|outlook|xbox/.test(c)) return '#3b82f6';
@@ -528,7 +528,64 @@ function lcGetServiceColor(hostname, isp) {
 }
 
 // ─── SERVICE NAME DETECTION ───────────────────────────────────
-function lcGetServiceName(hostname, isp) {
+function lcGetServiceName(hostname, isp, process) {
+  const p = (process || '').toLowerCase();
+
+  // Process-based detection (most reliable — checked first)
+  if (p.includes('chrome'))                                    return 'Chrome';
+  if (p.includes('firefox'))                                   return 'Firefox';
+  if (p.includes('msedge') || p.includes('edge'))             return 'Edge';
+  if (p.includes('brave'))                                     return 'Brave';
+  if (p.includes('opera'))                                     return 'Opera';
+  if (p.includes('safari'))                                    return 'Safari';
+  if (p.includes('vivaldi'))                                   return 'Vivaldi';
+  if (p.includes('discord'))                                   return 'Discord';
+  if (p.includes('slack'))                                     return 'Slack';
+  if (p.includes('teams'))                                     return 'Microsoft Teams';
+  if (p.includes('zoom'))                                      return 'Zoom';
+  if (p.includes('skype'))                                     return 'Skype';
+  if (p.includes('telegram'))                                  return 'Telegram';
+  if (p.includes('whatsapp'))                                  return 'WhatsApp';
+  if (p.includes('signal'))                                    return 'Signal';
+  if (p.includes('spotify'))                                   return 'Spotify';
+  if (p.includes('vlc'))                                       return 'VLC';
+  if (p.includes('netflix'))                                   return 'Netflix';
+  if (p.includes('plexmediaplayer') || p.includes('plex'))    return 'Plex';
+  if (p.includes('itunes'))                                    return 'iTunes';
+  if (p.includes('applemusic'))                               return 'Apple Music';
+  if (p.includes('code') && p.includes('visual'))             return 'VS Code';
+  if (p.includes('vscode') || p === 'code.exe')               return 'VS Code';
+  if (p.includes('cursor'))                                    return 'Cursor';
+  if (p.includes('github'))                                    return 'GitHub Desktop';
+  if (p.includes('postman'))                                   return 'Postman';
+  if (p.includes('docker'))                                    return 'Docker';
+  if (p.includes('node'))                                      return 'Node.js';
+  if (p.includes('python'))                                    return 'Python';
+  if (p.includes('aegis'))                                     return 'Aegis';
+  if (p.includes('wireshark'))                                 return 'Wireshark';
+  if (p.includes('nmap'))                                      return 'Nmap';
+  if (p.includes('burpsuite'))                                 return 'Burp Suite';
+  if (p.includes('nordvpn'))                                   return 'NordVPN';
+  if (p.includes('expressvpn'))                               return 'ExpressVPN';
+  if (p.includes('protonvpn'))                                 return 'ProtonVPN';
+  if (p.includes('openvpn'))                                   return 'OpenVPN';
+  if (p.includes('onedrive'))                                  return 'OneDrive';
+  if (p.includes('dropbox'))                                   return 'Dropbox';
+  if (p.includes('googledrive') || p.includes('googledrivesync')) return 'Google Drive';
+  if (p.includes('icloud'))                                    return 'iCloud';
+  if (p.includes('notion'))                                    return 'Notion';
+  if (p.includes('obsidian'))                                  return 'Obsidian';
+  if (p.includes('1password'))                                 return '1Password';
+  if (p.includes('bitwarden'))                                 return 'Bitwarden';
+  if (p.includes('svchost') || p.includes('lsass'))           return 'Windows System';
+  if (p.includes('msmpeng') || p.includes('windowsdefender')) return 'Windows Defender';
+  if (p.includes('malwarebytes'))                             return 'Malwarebytes';
+  if (p.includes('apsdaemon') || p.includes('appleid'))       return 'Apple Services';
+  if (p.includes('claude'))                                    return 'Claude / Anthropic';
+  if (p.includes('chatgpt') || p.includes('openai'))          return 'ChatGPT';
+  if (p.includes('copilot'))                                   return 'GitHub Copilot';
+
+  // Hostname/ISP fallback
   const c = ((hostname || '') + ' ' + (isp || '')).toLowerCase();
   if (/google|youtube|googleapis|gstatic|ggpht|googlevideo/.test(c)) return 'Google';
   if (/microsoft|windows\.net|azure|msft|live\.com|outlook|xbox/.test(c)) return 'Microsoft';
@@ -539,11 +596,76 @@ function lcGetServiceName(hostname, isp) {
   if (/tiktok/.test(c)) return 'TikTok';
   if (/apple|icloud/.test(c)) return 'Apple';
   if (/github/.test(c)) return 'GitHub';
-  return lcDetectGame(hostname, isp);
+  return lcDetectGame(hostname, isp, process);
+}
+
+// ─── PROCESS FRIENDLY NAME ────────────────────────────────────
+function lcFriendlyProcess(raw) {
+  if (!raw) return '';
+  const name = raw.toLowerCase().replace(/\.exe$/i, '');
+  const map = {
+    'chrome': 'Chrome', 'msedge': 'Edge', 'firefox': 'Firefox', 'brave': 'Brave',
+    'opera': 'Opera', 'vivaldi': 'Vivaldi',
+    'discord': 'Discord', 'steam': 'Steam', 'aegis': 'Aegis',
+    'spotify': 'Spotify', 'teams': 'Teams', 'slack': 'Slack',
+    'zoom': 'Zoom', 'skype': 'Skype', 'telegram': 'Telegram',
+    'whatsapp': 'WhatsApp', 'signal': 'Signal',
+    'outlook': 'Outlook', 'thunderbird': 'Thunderbird',
+    'code': 'VS Code', 'node': 'Node.js', 'python': 'Python',
+    'powershell': 'PowerShell', 'cmd': 'CMD',
+    'explorer': 'Explorer', 'svchost': 'Windows', 'system': 'System',
+    'onedrive': 'OneDrive', 'dropbox': 'Dropbox',
+    'nvcontainer': 'NVIDIA', 'nvdisplay.container': 'NVIDIA',
+    'searchapp': 'Search', 'runtimebroker': 'Windows',
+    'backgroundtaskhost': 'Windows', 'wininit': 'Windows',
+  };
+  return map[name] || raw.replace(/\.exe$/i, '');
 }
 
 // ─── GAME SERVER DETECTION ────────────────────────────────────
-function lcDetectGame(hostname, isp) {
+function lcDetectGame(hostname, isp, process) {
+  const p = (process || '').toLowerCase();
+
+  // Process-based detection (most reliable — checked first)
+  // Battle Royale
+  if (p.includes('tslgame'))                                   return 'PUBG';
+  if (p.includes('fortniteclient') || p.includes('fortnite')) return 'Fortnite';
+  if (p.includes('r5apex'))                                    return 'Apex Legends';
+  if (p.includes('warzone') || p.includes('modernwarfare'))    return 'Call of Duty';
+  // MOBA
+  if (p.includes('leagueclient') || p.includes('lol.launcher'))return 'League of Legends';
+  if (p.includes('dota2'))                                     return 'Dota 2';
+  if (p.includes('heroesofthestorm'))                         return 'Heroes of the Storm';
+  // FPS
+  if (p.includes('valorant') || p.includes('vgc'))            return 'Valorant';
+  if (p.includes('csgo') || p.includes('cs2'))                return 'CS2';
+  if (p.includes('overwatch') || p.includes('ow2'))           return 'Overwatch 2';
+  if (p.includes('destiny2'))                                  return 'Destiny 2';
+  if (p.includes('rainbow6') || (p.includes('r6') && p.includes('siege'))) return 'Rainbow Six Siege';
+  if (p.includes('bf') && p.includes('field'))                return 'Battlefield';
+  // MMO / RPG
+  if (p.includes('genshinimpact') || p.includes('yuanshen'))  return 'Genshin Impact';
+  if (p.includes('wow') || p.includes('worldofwarcraft'))     return 'World of Warcraft';
+  if (p.includes('finalfantasy') || p.includes('ffxiv'))      return 'Final Fantasy XIV';
+  if (p.includes('eldenring'))                                 return 'Elden Ring';
+  if (p.includes('witcher'))                                   return 'The Witcher';
+  // Platforms
+  if (p.includes('steam'))                                     return 'Steam';
+  if (p.includes('epicgameslauncher') || p.includes('epicgames')) return 'Epic Games';
+  if (p.includes('riotclientservices') || p.includes('riotclient')) return 'Riot Client';
+  if (p.includes('battlenet') || p.includes('battle.net'))    return 'Battle.net';
+  if (p.includes('eagames') || p.includes('eadesktop'))       return 'EA App';
+  if (p.includes('ubisoftconnect') || p.includes('uplay'))    return 'Ubisoft Connect';
+  if (p.includes('gog'))                                       return 'GOG Galaxy';
+  if (p.includes('xbox') || p.includes('gamepass'))           return 'Xbox / Game Pass';
+  // Other games
+  if (p.includes('minecraft'))                                 return 'Minecraft';
+  if (p.includes('roblox'))                                    return 'Roblox';
+  if (p.includes('among'))                                     return 'Among Us';
+  if (p.includes('rocket') && p.includes('league'))           return 'Rocket League';
+  if (p.includes('4visiongame') || p.includes('4vision'))     return '4Vision';
+
+  // Hostname/ISP fallback
   const h = (hostname || '').toLowerCase();
   const s = (isp || '').toLowerCase();
   if (/valve|steamserver|valve\.net/.test(h) || /valve/.test(s)) return 'Steam / Valve';
@@ -570,10 +692,10 @@ function lcAutoTrace(ip, gameName, geo) {
     const body = gameName + ' · ' + ip + ' · ' + location;
     if (window.Notification) {
       if (Notification.permission === 'granted') {
-        new Notification('🎮 Game Server Detected', { body: body });
+        new Notification('GAME Server Detected', { body: body });
       } else if (Notification.permission !== 'denied') {
         Notification.requestPermission().then(function(p) {
-          if (p === 'granted') new Notification('🎮 Game Server Detected', { body: body });
+          if (p === 'granted') new Notification('GAME Server Detected', { body: body });
         });
       }
     }
@@ -688,8 +810,8 @@ function lcPlaceYouMarker(ll, label) {
   lcMap.setView(ll, 3);
 }
 
-function lcEnqueueBanner(ip, hostname, geo) {
-  lcBannerQueue.push({ ip: ip, hostname: hostname, geo: geo });
+function lcEnqueueBanner(ip, hostname, geo, process) {
+  lcBannerQueue.push({ ip: ip, hostname: hostname, geo: geo, process: process || '' });
   if (!lcBannerShowing) lcProcessBannerQueue();
 }
 
@@ -706,22 +828,26 @@ function lcProcessBannerQueue() {
     setTimeout(lcProcessBannerQueue, 0);
     return;
   }
-  const serviceName = lcGetServiceName(hostname, geo ? geo.isp : '');
+  const serviceName = lcGetServiceName(hostname, geo ? geo.isp : '', item.process || '');
   const location = geo ? [geo.city, geo.country].filter(Boolean).join(', ') || '—' : '—';
   const isp = geo ? (geo.isp || '—') : '—';
   const domain = hostname || ip;
+  const friendlyProc = lcFriendlyProcess(item.process);
   const serviceLabel = serviceName
     ? '<span style="color:#fbbf24;font-weight:bold;">' + serviceName + '</span>'
     : '<span style="color:#f59e0b;">UNKNOWN SERVICE</span>';
+  const processLabel = friendlyProc
+    ? '<span style="color:#38bdf8;font-family:var(--font-mono);font-size:11px;margin-left:6px;">&#9658; ' + friendlyProc + '</span>'
+    : '';
   const banner = document.createElement('div');
   banner.style.cssText = 'background:rgba(245,158,11,0.1);border:1px solid #f59e0b;border-radius:4px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;animation:lcBannerIn 0.3s ease;';
   banner.innerHTML =
-    '<span style="font-size:16px;flex-shrink:0;">🆕</span>' +
+    '<span style="font-size:16px;flex-shrink:0;">&#9670;</span>' +
     '<div style="flex:1;font-family:var(--font-mono);">' +
-    '<span style="color:#f59e0b;font-size:11px;letter-spacing:2px;">NEW CONNECTION</span>&nbsp;&nbsp;' + serviceLabel +
+    '<span style="color:#f59e0b;font-size:11px;letter-spacing:2px;">NEW CONNECTION</span>&nbsp;&nbsp;' + serviceLabel + processLabel +
     '<div style="color:var(--text-dim);font-size:11px;margin-top:2px;">' + domain + ' &nbsp;·&nbsp; ' + location + ' &nbsp;·&nbsp; ' + isp + '</div>' +
     '</div>' +
-    '<button onclick="this.parentNode.remove();lcProcessBannerQueue();" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0;">×</button>';
+    '<button onclick="this.parentNode.remove();lcProcessBannerQueue();" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0;">&#10005;</button>';
   mapContainer.parentNode.insertBefore(banner, mapContainer);
   setTimeout(function() {
     if (banner.parentNode) banner.remove();
@@ -780,12 +906,12 @@ async function lcBatchReverseDNS(ips) {
   }));
 }
 
-function lcAddConnectionToMap(ip, geo, isNew) {
+function lcAddConnectionToMap(ip, geo, isNew, process) {
   if (lcConnections.has(ip) || !lcMap) return;
   const hostname = lcDnsCache.get(ip) || null;
   const isp = geo ? (geo.isp || '') : '';
-  const gameName = lcDetectGame(hostname, isp);
-  const color = gameName ? '#22c55e' : lcGetServiceColor(hostname, isp);
+  const gameName = lcDetectGame(hostname, isp, process);
+  const color = gameName ? '#22c55e' : lcGetServiceColor(hostname, isp, process);
 
   let marker = null;
   let line   = null;
@@ -838,7 +964,7 @@ function lcAddConnectionToMap(ip, geo, isNew) {
     lcNewConnections.set(ip, { addedAt: Date.now(), dotTimer: null });
   }
 
-  lcConnections.set(ip, { marker: marker, line: line, glow: glow, geo: geo || null, color: color, gameName: gameName || null });
+  lcConnections.set(ip, { marker: marker, line: line, glow: glow, geo: geo || null, color: color, gameName: gameName || null, process: process || '' });
 }
 
 function lcRemoveConnectionFromMap(ip) {
@@ -951,7 +1077,7 @@ function lcRenderTracePanel(hops, ip, loading, done) {
   if (isGame) {
     gameBannerHTML =
       '<div style="background:rgba(34,197,94,0.08);border:1px solid #22c55e;border-radius:4px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">' +
-      '<span style="font-size:22px;">🎮</span>' +
+      '<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:1px;color:#22c55e;">GAME</span>' +
       '<div>' +
       '<div style="font-family:var(--font-mono);font-size:11px;color:#22c55e;letter-spacing:2px;margin-bottom:2px;">GAME SERVER DETECTED — ' + lcCurrentGameDetected.name.toUpperCase() + '</div>' +
       '<div style="font-family:var(--font-mono);font-size:11px;color:#64748b;">' + ip + ' · ' + lcCurrentGameDetected.location + '</div>' +
@@ -969,7 +1095,7 @@ function lcRenderTracePanel(hops, ip, loading, done) {
       const latCol = ntLatColor(lastLatency);
       gameLatencyHTML =
         '<div style="margin-top:12px;padding:14px 16px;background:rgba(34,197,94,0.06);border:1px solid #22c55e;border-radius:4px;text-align:center;">' +
-        '<div style="font-family:var(--font-mono);font-size:11px;color:#22c55e;letter-spacing:3px;margin-bottom:6px;">🎮 GAME SERVER LATENCY</div>' +
+        '<div style="font-family:var(--font-mono);font-size:11px;color:#22c55e;letter-spacing:3px;margin-bottom:6px;">GAME SERVER LATENCY</div>' +
         '<div style="font-family:var(--font-title);font-size:36px;color:' + latCol + ';">' + lastLatency + '<span style="font-size:16px;color:var(--text-dim);"> ms</span></div>' +
         '</div>';
     }
@@ -1028,7 +1154,7 @@ function lcRenderTable() {
     const ageMs = nc ? (Date.now() - nc.addedAt) : Infinity;
     const isNewRecent = ageMs < 10000;
     const isNewBadge  = ageMs < 30000;
-    const serviceName = lcGetServiceName(hostname, geo.isp || '');
+    const serviceName = lcGetServiceName(hostname, geo.isp || '', conn.process || '');
     const rowBg    = isNewRecent ? 'rgba(245,158,11,0.08)' : (isGame ? 'rgba(34,197,94,0.05)' : 'transparent');
     const rowHover = isNewRecent ? 'rgba(245,158,11,0.14)' : (isGame ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.04)');
     const newBadge = isNewBadge
@@ -1036,7 +1162,7 @@ function lcRenderTable() {
       : '';
     let serviceTag;
     if (isGame) {
-      serviceTag = '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">🎮 ' + conn.gameName + '</span>';
+      serviceTag = '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">GAME: ' + conn.gameName + '</span>';
     } else if (serviceName) {
       serviceTag = '<span style="font-family:var(--font-mono);font-size:9px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text-dim);padding:1px 5px;border-radius:2px;margin-left:6px;letter-spacing:1px;vertical-align:middle;">' + serviceName + '</span>';
     } else if (isNewBadge) {
@@ -1044,12 +1170,17 @@ function lcRenderTable() {
     } else {
       serviceTag = '';
     }
+    const friendlyProc = lcFriendlyProcess(conn.process || '');
+    const processCell = friendlyProc
+      ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + color + ';margin-right:5px;vertical-align:middle;"></span>' + friendlyProc
+      : '<span style="color:var(--text-dim);">—</span>';
     return '<tr onclick="lcClickTrace(\'' + ip + '\')" style="cursor:pointer;background:' + rowBg + ';" onmouseover="this.style.background=\'' + rowHover + '\'" onmouseout="this.style.background=\'' + rowBg + '\'">' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:' + color + ';padding:8px 10px;">' +
       '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px;vertical-align:middle;box-shadow:0 0 4px ' + color + ';"></span>' + ip + newBadge + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + (hostname || ip) + serviceTag + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + location + '</td>' +
       '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:8px 10px;">' + (geo.isp || '—') + '</td>' +
+      '<td style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);padding:8px 10px;">' + processCell + '</td>' +
       '</tr>';
   }).join('');
   el.innerHTML =
@@ -1061,6 +1192,7 @@ function lcRenderTable() {
     '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">DOMAIN</th>' +
     '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">LOCATION</th>' +
     '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">ISP</th>' +
+    '<th style="font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:2px;padding:8px 10px;text-align:left;font-weight:500;">PROCESS</th>' +
     '</tr></thead>' +
     '<tbody>' + rows + '</tbody>' +
     '</table></div></div>';
@@ -1068,13 +1200,17 @@ function lcRenderTable() {
 
 async function lcPoll() {
   if (!lcMonitoring) return;
-  let currentIPs = [];
+  let connData = [];
   try {
     if (window.aegis && window.aegis.getActiveConnections) {
-      currentIPs = await window.aegis.getActiveConnections();
+      connData = await window.aegis.getActiveConnections();
     }
   } catch (_) {}
 
+  // connData is [{ip, process, pid}] — extract IPs and build process lookup
+  const currentIPs = connData.map(function(c) { return c.ip; });
+  const processMap = {};
+  connData.forEach(function(c) { processMap[c.ip] = c.process || ''; });
   const currentSet = new Set(currentIPs);
 
   // Remove gone connections
@@ -1086,20 +1222,19 @@ async function lcPoll() {
   const newIPs = currentIPs.filter(function(ip) { return !lcConnections.has(ip) && !lcIsPrivate(ip); });
   if (newIPs.length) {
     await Promise.all([lcBatchGeolocate(newIPs), lcBatchReverseDNS(newIPs)]);
-    // Always register the connection — map elements are skipped gracefully if geo/location unavailable
     // isNew is false on the very first poll (pre-existing connections get no badge/amber dot)
     newIPs.forEach(function(ip) {
       const geo = lcGeoCache.get(ip) || null;
-      lcAddConnectionToMap(ip, geo, !lcFirstPoll);
+      lcAddConnectionToMap(ip, geo, !lcFirstPoll, processMap[ip] || '');
     });
     newIPs.forEach(function(ip) {
       const hostname = lcDnsCache.get(ip) || null;
       const geo = lcGeoCache.get(ip) || null;
       // Skip banners on the very first poll — those are pre-existing connections, not new arrivals
-      if (!lcFirstPoll) lcEnqueueBanner(ip, hostname, geo);
+      if (!lcFirstPoll) lcEnqueueBanner(ip, hostname, geo, processMap[ip] || '');
       if (lcAutoTracedIPs.has(ip)) return;
       const isp = geo ? (geo.isp || '') : '';
-      const gameName = lcDetectGame(hostname, isp);
+      const gameName = lcDetectGame(hostname, isp, processMap[ip] || '');
       if (gameName) lcAutoTrace(ip, gameName, geo);
     });
   }

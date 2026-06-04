@@ -1,4 +1,4 @@
-let allCVEs = [];
+﻿let allCVEs = [];
 let currentPageId = 'dashboard';
 
 // ─── MULTI-WINDOW RENDERER ────────────────────────────────────
@@ -284,8 +284,8 @@ function runSplash() {
 runSplash();
 
 // ============================================================
-// AEGIS � PERSONAL SECURITY INTELLIGENCE DASHBOARD
-// main.js � Complete Feature Set
+// AEGIS — PERSONAL SECURITY INTELLIGENCE DASHBOARD
+// main.js — Complete Feature Set
 // ============================================================
 
 // PAGE NAVIGATION
@@ -359,7 +359,7 @@ function togglePassword() {
 }
 
 // ============================================================
-// PASSWORD HEALTH CHECK � ULTIMATE EDITION
+// PASSWORD HEALTH CHECK
 // ============================================================
 function calculateEntropy(password) {
   let charset = 0;
@@ -541,13 +541,13 @@ function renderPasswordAnalysis(password) {
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SECURITY CHECKS</div>' +
     '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">' +
     [['8+ characters', checks.length8], ['12+ characters', checks.length12], ['16+ characters', checks.length16], ['Uppercase letters', checks.hasUpper], ['Lowercase letters', checks.hasLower], ['Numbers', checks.hasNumber], ['Special symbols', checks.hasSymbol], ['No repeated chars', checks.noRepeat], ['No sequential patterns', checks.noSequential], ['No keyboard walks', checks.noKeyboardWalk], ['Not a common password', checks.noCommon]].map(function(item) {
-      return '<div style="font-family:var(--font-mono); font-size:13px; color:' + (item[1] ? '#10b981' : '#ef4444') + ';">' + (item[1] ? '?' : '?') + ' ' + item[0] + '</div>';
+      return '<div style="font-family:var(--font-mono); font-size:13px; color:' + (item[1] ? '#10b981' : '#ef4444') + ';">' + (item[1] ? '&#10003;' : '&#10005;') + ' ' + item[0] + '</div>';
     }).join('') +
     '</div></div>' +
     (suggestions.length > 0 ?
     '<div style="margin-bottom:18px;">' +
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">RECOMMENDATIONS</div>' +
-    suggestions.map(function(s) { return '<div style="font-family:var(--font-mono); font-size:13px; color:#f59e0b; margin-bottom:4px;">? ' + s + '</div>'; }).join('') +
+    suggestions.map(function(s) { return '<div style="font-family:var(--font-mono); font-size:13px; color:#f59e0b; margin-bottom:4px;">&#9658; ' + s + '</div>'; }).join('') +
     '</div>' : '') +
     '<div id="breach-check-result"><p class="loading" style="font-size:13px;">Checking breach database...</p></div>' +
     '</div>';
@@ -573,11 +573,11 @@ document.getElementById('generate-pw-btn').addEventListener('click', function() 
   renderPasswordAnalysis(pwd);
   navigator.clipboard.writeText(pwd).then(function() {
     const btn = document.getElementById('generate-pw-btn');
-    btn.textContent = '? COPIED';
+    btn.innerHTML = '&#10003; COPIED';
     btn.style.color = '#10b981';
     btn.style.borderColor = '#10b981';
     setTimeout(function() {
-      btn.textContent = '? GENERATE';
+      btn.innerHTML = '&#9889; GENERATE';
       btn.style.color = '#64748b';
       btn.style.borderColor = '#1e2d4a';
     }, 2000);
@@ -585,7 +585,7 @@ document.getElementById('generate-pw-btn').addEventListener('click', function() 
 });
 
 // ============================================================
-// IP / DOMAIN INVESTIGATOR � ULTIMATE EDITION
+// IP / DOMAIN INVESTIGATOR
 // ============================================================
 const KNOWN_SAFE = {
   '8.8.8.8': 'Google Public DNS',
@@ -740,7 +740,7 @@ function copyIPReport() {
   navigator.clipboard.writeText(reportEl.innerText).then(function() {
     const btn = document.getElementById('copy-ip-btn');
     if (btn) {
-      btn.textContent = '? COPIED';
+      btn.innerHTML = '&#10003; COPIED';
       btn.style.color = '#10b981';
       btn.style.borderColor = '#10b981';
       setTimeout(function() { btn.textContent = 'COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
@@ -958,11 +958,11 @@ document.getElementById('my-ip-btn').addEventListener('click', async function() 
     const response = await fetch('https://api64.ipify.org?format=json');
     const data = await response.json();
     document.getElementById('ip-input').value = data.ip;
-    btn.textContent = '? MY IP';
+    btn.innerHTML = '&#8982; MY IP';
     btn.style.opacity = '1';
     investigateIP();
   } catch (e) {
-    btn.textContent = '? MY IP';
+    btn.innerHTML = '&#8982; MY IP';
     btn.style.opacity = '1';
     document.getElementById('ip-result').innerHTML = '<p class="placeholder-text">Could not detect your IP. Try again.</p>';
   }
@@ -1073,7 +1073,7 @@ function copyCVEId(id) {
   navigator.clipboard.writeText(id).then(function() {
     const btn = document.getElementById('copy-cve-' + id);
     if (btn) {
-      btn.textContent = '? COPIED';
+      btn.innerHTML = '&#10003; COPIED';
       btn.style.color = '#10b981';
       btn.style.borderColor = '#10b981';
       setTimeout(function() { btn.textContent = 'COPY ID'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
@@ -1340,7 +1340,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 
 
 // ============================================================
-// AI DAILY BRIEFING � FULL EDITION
+// AI DAILY BRIEFING
 // ============================================================
 let briefingHistory = [];
 let briefingAbortController = null;
@@ -1555,7 +1555,7 @@ async function generateBriefing() {
   }
 
   briefingAbortController = null;
-  btn.textContent = '&#9889; GENERATE BRIEFING';
+  btn.innerHTML = '&#9889; GENERATE BRIEFING';
   btn.style.opacity = '1';
   btn.disabled = false;
   if (stopBtn) stopBtn.style.display = 'none';
@@ -1566,7 +1566,7 @@ function copyBriefing() {
   if (!report) return;
   navigator.clipboard.writeText(report.innerText).then(function() {
     const btn = event.target;
-    btn.textContent = '? COPIED';
+    btn.innerHTML = '&#10003; COPIED';
     btn.style.color = '#10b981';
     btn.style.borderColor = '#10b981';
     setTimeout(function() { btn.textContent = 'COPY'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
@@ -1653,7 +1653,7 @@ async function confirmClearBriefings() {
 }
 
 // ============================================================
-// SECURITY NEWS HEADLINES � FULL EDITION
+// SECURITY NEWS HEADLINES
 // ============================================================
 const NEWS_CATEGORIES = {
   'ransomware': { label: 'RANSOMWARE', color: '#ef4444' },
@@ -2384,7 +2384,7 @@ async function openRouterPanel(ip) {
 
 
 // ============================================================
-// DASHBOARD � HOME PAGE
+// DASHBOARD
 // ============================================================
 async function loadDashboard() {
   const dashDiv = document.getElementById('dashboard-content');

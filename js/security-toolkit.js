@@ -328,7 +328,7 @@ async function stGenerateHashes() {
 function stCopyHash(hash, btn) {
   navigator.clipboard.writeText(hash).then(function() {
     const orig = btn.textContent;
-    btn.textContent = '✓ COPIED';
+    btn.innerHTML = '&#10003; COPIED';
     btn.style.color = '#10b981'; btn.style.borderColor = '#10b981';
     setTimeout(function() { btn.textContent = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
   });
@@ -340,8 +340,8 @@ function stCompareHashes() {
   const resultDiv = document.getElementById('st-hash-compare-result');
   if (!h1 || !h2) { resultDiv.innerHTML = '<p class="placeholder-text" style="margin:0;">Enter both hashes to compare.</p>'; return; }
   resultDiv.innerHTML = h1 === h2
-    ? '<div style="background:rgba(16,185,129,0.1); border:1px solid #10b981; border-radius:3px; padding:12px 16px; font-family:var(--font-title); font-size:13px; color:#10b981; letter-spacing:2px;">✓ MATCH — Hashes are identical</div>'
-    : '<div style="background:rgba(239,68,68,0.1); border:1px solid #ef4444; border-radius:3px; padding:12px 16px; font-family:var(--font-title); font-size:13px; color:#ef4444; letter-spacing:2px;">✗ NO MATCH — Hashes are different</div>';
+    ? '<div style="background:rgba(16,185,129,0.1); border:1px solid #10b981; border-radius:3px; padding:12px 16px; font-family:var(--font-title); font-size:13px; color:#10b981; letter-spacing:2px;">&#10003; MATCH — Hashes are identical</div>'
+    : '<div style="background:rgba(239,68,68,0.1); border:1px solid #ef4444; border-radius:3px; padding:12px 16px; font-family:var(--font-title); font-size:13px; color:#ef4444; letter-spacing:2px;">&#10005; NO MATCH — Hashes are different</div>';
 }
 
 function stDragOver(e) {
@@ -365,7 +365,7 @@ async function stHashFile(file) {
   const dropArea  = document.getElementById('st-file-drop');
   if (dropArea) {
     dropArea.innerHTML =
-      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber); letter-spacing:1px;">📄 ' + stEscapeHtml(file.name) + '</div>' +
+      '<div style="font-family:var(--font-mono); font-size:13px; color:var(--amber); letter-spacing:1px;">' + stEscapeHtml(file.name) + '</div>' +
       '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-top:6px;">Click to select a different file</div>';
   }
   resultDiv.innerHTML = '<p class="loading" style="margin:0;">COMPUTING HASHES...</p>';
@@ -387,7 +387,7 @@ async function stHashFile(file) {
 
     resultDiv.innerHTML =
       '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">' +
-      '📄 ' + stEscapeHtml(file.name) + ' · ' + fileSize + ' · ' + (file.type || 'unknown type') +
+      stEscapeHtml(file.name) + ' · ' + fileSize + ' · ' + (file.type || 'unknown type') +
       '</div>' +
       [['MD5','md5'],['SHA-1','sha1'],['SHA-256','sha256'],['SHA-512','sha512']].map(function(pair) {
         const hash = h[pair[1]];
