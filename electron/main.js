@@ -155,15 +155,22 @@ function createWindow() {
 
 // ─── TRAY ─────────────────────────────────────────────────────
 function createTray() {
-  const iconFile = process.platform === 'win32' ? 'tray-icon.ico' : 'tray-icon.png';
-  const iconPath = path.join(ICON_PATH, iconFile);
+  const iconPath = path.join(ICON_PATH, 'tray-icon.png');
+  let trayImg;
+  try {
+    trayImg = nativeImage.createFromPath(iconPath);
+    // Windows tray icons must be 16x16; resize if the PNG is larger
+    if (process.platform === 'win32' && !trayImg.isEmpty()) {
+      trayImg = trayImg.resize({ width: 16, height: 16 });
+    }
+  } catch (e) {
+    trayImg = nativeImage.createEmpty();
+  }
 
   try {
-    tray = new Tray(iconPath);
+    tray = new Tray(trayImg);
   } catch (e) {
-    // Fallback: create a minimal icon from nativeImage
-    const img = nativeImage.createEmpty();
-    tray = new Tray(img);
+    tray = new Tray(nativeImage.createEmpty());
   }
 
   tray.setToolTip('Aegis Security Intelligence');

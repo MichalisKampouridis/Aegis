@@ -46,7 +46,9 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Aegis Setup*.exe
+          files: |
+            dist/Aegis Setup*.exe
+            dist/latest.yml
 
   # ── macOS (x64 + arm64) ─────────────────────────────────────
   build-mac:
@@ -98,7 +100,9 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.dmg
+          files: |
+            dist/*.dmg
+            dist/latest-mac.yml
 
   # ── Linux x64 (AppImage) ────────────────────────────────────
   build-linux:
@@ -138,4 +142,6 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.AppImage
+          files: |
+            dist/*.AppImage
+            dist/latest-linux.yml
