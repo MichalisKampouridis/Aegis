@@ -1,6 +1,6 @@
 {
   "name": "aegis",
-  "version": "1.0.0",
+  "version": "1.0.8",
   "description": "Personal Security Intelligence Dashboard",
   "main": "electron/main.js",
   "scripts": {

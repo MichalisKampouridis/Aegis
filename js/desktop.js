@@ -518,33 +518,68 @@ async function updateNow() {
   window.aegis.installUpdate();
 }
 
+// Tracks the 10-second no-response timeout for a manual update check
+let _updateCheckTimer = null;
+
+function _clearUpdateCheckTimer() {
+  if (_updateCheckTimer) { clearTimeout(_updateCheckTimer); _updateCheckTimer = null; }
+}
+
 async function checkForUpdatesManual() {
   if (!IS_ELECTRON) return;
   const btn = document.getElementById('check-updates-btn');
   const statusEl = document.getElementById('about-update-status');
-  if (btn) { btn.textContent = 'CHECKING...'; btn.disabled = true; }
+
+  _clearUpdateCheckTimer();
+
+  // Checking state
+  if (btn) { btn.innerHTML = 'CHECKING...'; btn.disabled = true; btn.style.color = ''; }
   if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-dim);">Checking for updates...</span>';
+
+  // Arm timeout BEFORE the async call so it fires even if checkForUpdates() hangs
+  _updateCheckTimer = setTimeout(function() {
+    _updateCheckTimer = null;
+    const s = document.getElementById('about-update-status');
+    if (s) s.innerHTML = '<span style="color:#ef4444;">Unable to check for updates. Try again later.</span>';
+    const b = document.getElementById('check-updates-btn');
+    if (b) {
+      b.disabled = false; b.style.color = '#ef4444'; b.innerHTML = 'CHECK FAILED — TRY AGAIN';
+      setTimeout(function() { b.textContent = 'CHECK FOR UPDATES'; b.style.color = ''; }, 3000);
+    }
+  }, 10000);
+
   const result = await window.aegis.checkForUpdates();
-  if (btn) { btn.textContent = 'CHECK FOR UPDATES'; btn.disabled = false; }
+
+  // Dev build — immediate result, no IPC events will fire
   if (result && result.dev) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#64748b;">Development build — update checking disabled</span>';
+    _clearUpdateCheckTimer();
+    if (statusEl) statusEl.innerHTML = '<span style="color:#64748b;">Running in dev mode — updates disabled</span>';
+    if (btn) { btn.textContent = 'CHECK FOR UPDATES'; btn.disabled = false; btn.style.color = ''; }
   }
+  // Non-dev: timeout above covers no-response; onUpdateAvailable/onUpdateNotAvailable cover success
 }
 
 if (IS_ELECTRON && window.aegis.onUpdateAvailable) {
   window.aegis.onUpdateAvailable(function(version) {
+    _clearUpdateCheckTimer();
     showUpdateBanner(version);
     const statusEl = document.getElementById('about-update-status');
     if (statusEl) statusEl.innerHTML = '<span style="color:#f59e0b;">&#8635; Update available: v' + version + ' — <a onclick="showUpdateBanner(\'' + version + '\')" style="color:#f59e0b;cursor:pointer;text-decoration:underline;">Show banner</a></span>';
+    const btn = document.getElementById('check-updates-btn');
+    if (btn && btn.disabled) { btn.disabled = false; btn.style.color = '#f59e0b'; btn.innerHTML = 'UPDATE AVAILABLE'; }
   });
 }
 
 if (IS_ELECTRON && window.aegis.onUpdateNotAvailable) {
   window.aegis.onUpdateNotAvailable(function() {
+    _clearUpdateCheckTimer();
     const statusEl = document.getElementById('about-update-status');
     if (statusEl) statusEl.innerHTML = '<span style="color:#10b981;">&#10003; Up to date</span>';
     const btn = document.getElementById('check-updates-btn');
-    if (btn) { btn.innerHTML = '&#10003; UP TO DATE'; setTimeout(function() { btn.textContent = 'CHECK FOR UPDATES'; }, 3000); }
+    if (btn) {
+      btn.disabled = false; btn.style.color = '#10b981'; btn.innerHTML = '&#10003; UP TO DATE';
+      setTimeout(function() { btn.textContent = 'CHECK FOR UPDATES'; btn.style.color = ''; }, 3000);
+    }
   });
 }
 
