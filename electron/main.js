@@ -960,7 +960,15 @@ ipcMain.handle('check-ssl', (_, domain) => {
 // Auto-updates
 ipcMain.handle('check-for-updates', () => {
   if (!updater) return { dev: true };
-  try { updater.checkForUpdates(); return true; } catch (e) { return false; }
+  try {
+    updater.checkForUpdates().catch((err) => {
+      if (mainWindow) mainWindow.webContents.send('update-error', err.message || 'Update check failed');
+    });
+    return true;
+  } catch (err) {
+    if (mainWindow) mainWindow.webContents.send('update-error', err.message || 'Update check failed');
+    return false;
+  }
 });
 ipcMain.handle('install-update', () => {
   if (!updater) return false;
@@ -1122,7 +1130,9 @@ app.whenReady().then(() => {
       updater.on('update-not-available', () => {
         if (mainWindow) mainWindow.webContents.send('update-not-available');
       });
-      updater.on('error', () => {});
+      updater.on('error', (err) => {
+        if (mainWindow) mainWindow.webContents.send('update-error', err.message || 'Update check failed');
+      });
       setTimeout(() => { try { updater.checkForUpdates(); } catch (_) {} }, 5000);
       setInterval(() => { try { updater.checkForUpdates(); } catch (_) {} }, 4 * 60 * 60 * 1000);
     } catch (e) {}

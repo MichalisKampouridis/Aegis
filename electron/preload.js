@@ -119,5 +119,6 @@ contextBridge.exposeInMainWorld('aegis', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_, version) => callback(version)),
-  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', () => callback())
+  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', () => callback()),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', (_, message) => callback(message))
 });

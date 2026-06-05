@@ -583,4 +583,17 @@ if (IS_ELECTRON && window.aegis.onUpdateNotAvailable) {
   });
 }
 
+if (IS_ELECTRON && window.aegis.onUpdateError) {
+  window.aegis.onUpdateError(function() {
+    _clearUpdateCheckTimer();
+    const btn = document.getElementById('check-updates-btn');
+    if (btn && btn.disabled) {
+      const statusEl = document.getElementById('about-update-status');
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">Unable to check for updates. Try again later.</span>';
+      btn.disabled = false; btn.style.color = '#ef4444'; btn.innerHTML = 'CHECK FAILED &#8212; TRY AGAIN';
+      setTimeout(function() { btn.textContent = 'CHECK FOR UPDATES'; btn.style.color = ''; }, 3000);
+    }
+  });
+}
+
 console.log('Aegis Desktop Integration loaded. Electron:', IS_ELECTRON);
