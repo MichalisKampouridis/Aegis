@@ -1,6 +1,6 @@
 # Aegis — Personal Security Intelligence Platform
 
-![Version](https://img.shields.io/badge/version-1.0.8-f59e0b?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.0.11-f59e0b?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)
 ![Electron](https://img.shields.io/badge/built%20with-Electron-47848f?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
@@ -68,19 +68,19 @@ Open different pages across multiple screens with one click. Single, dual, or tr
 ## Installation
 
 **Windows**
-1. Download `Aegis-Setup-1.0.8.exe` from the [latest release](https://github.com/MichalisKampouridis/Aegis/releases/latest)
+1. Download `Aegis-Setup-1.0.11.exe` from the [latest release](https://github.com/MichalisKampouridis/Aegis/releases/latest)
 2. Run the installer
 3. Launch from Start Menu or Desktop shortcut
 
 **macOS**
-1. Download `Aegis-1.0.8-arm64.dmg` (Apple Silicon) or `Aegis-1.0.8.dmg` (Intel)
+1. Download `Aegis-1.0.11-arm64.dmg` (Apple Silicon) or `Aegis-1.0.11.dmg` (Intel)
 2. Open the .dmg and drag Aegis to Applications
 3. Right-click → Open on first launch to bypass Gatekeeper
 
 **Linux**
-1. Download `Aegis-1.0.8.AppImage` from the [latest release](https://github.com/MichalisKampouridis/Aegis/releases/latest)
-2. `chmod +x Aegis-1.0.8.AppImage`
-3. `./Aegis-1.0.8.AppImage`
+1. Download `Aegis-1.0.11.AppImage` from the [latest release](https://github.com/MichalisKampouridis/Aegis/releases/latest)
+2. `chmod +x Aegis-1.0.11.AppImage`
+3. `./Aegis-1.0.11.AppImage`
 
 ---
 
