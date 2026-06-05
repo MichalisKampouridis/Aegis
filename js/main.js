@@ -1130,15 +1130,15 @@ function openCVEModal(cveId) {
     '</div>' +
 
     // NVD description
-    '<div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">&#9673; NVD DESCRIPTION · NIST NATIONAL VULNERABILITY DATABASE</div>' +
+    '<div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:8px;">&#9673; NVD DESCRIPTION &#183; NIST NATIONAL VULNERABILITY DATABASE</div>' +
     '<div style="font-family:var(--font-mono); font-size:13px; color:var(--text-primary); line-height:1.8; padding:14px; background:var(--bg-secondary); border:1px solid var(--border); border-left:3px solid ' + sevColor + '; border-radius:3px; margin-bottom:12px;">' +
     cveData.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
     '</div>' +
-    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:20px;">PUBLISHED: ' + (cveData.published || '—') + ' &nbsp;|&nbsp; MODIFIED: ' + (cveData.modified || '—') + '</div>' +
+    '<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:20px;">PUBLISHED: ' + (cveData.published || '&#8212;') + ' &nbsp;|&nbsp; MODIFIED: ' + (cveData.modified || '&#8212;') + '</div>' +
 
     // AI analysis section
     '<div style="border-top:1px solid var(--border); padding-top:20px;">' +
-    '<div style="font-family:var(--font-mono); font-size:10px; color:#a78bfa; letter-spacing:2px; margin-bottom:14px;">&#9889; AI TECHNICAL ANALYSIS · CLAUDE SONNET</div>' +
+    '<div style="font-family:var(--font-mono); font-size:10px; color:#a78bfa; letter-spacing:2px; margin-bottom:14px;">&#9889; AI TECHNICAL ANALYSIS &#183; CLAUDE SONNET</div>' +
     '<div id="cve-modal-ai-body">' +
     '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; animation:blink 1s infinite;">GENERATING ANALYSIS...</div>' +
     '</div>' +
@@ -1229,7 +1229,7 @@ function renderCVEList() {
   const total = allCVEs.length;
   const statsBar =
     '<div style="margin-bottom:20px;">' +
-    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SEVERITY BREAKDOWN · ' + total + ' VULNERABILITIES</div>' +
+    '<div style="font-family:var(--font-mono); font-size:12px; color:var(--amber); letter-spacing:2px; margin-bottom:10px;">SEVERITY BREAKDOWN &#183; ' + total + ' VULNERABILITIES</div>' +
     '<div style="display:flex; gap:4px; height:8px; border-radius:4px; overflow:hidden; margin-bottom:12px;">' +
     (counts.CRITICAL > 0 ? '<div style="background:#ef4444; flex:' + counts.CRITICAL + '; transition:flex 0.5s;" title="CRITICAL: ' + counts.CRITICAL + '"></div>' : '') +
     (counts.HIGH > 0 ? '<div style="background:#f97316; flex:' + counts.HIGH + '; transition:flex 0.5s;" title="HIGH: ' + counts.HIGH + '"></div>' : '') +
